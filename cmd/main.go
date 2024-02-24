@@ -3,13 +3,12 @@ package main
 import (
 	"fmt"
 	"github.com/wendy512/iec61850"
-	"github.com/wendy512/iec61850/client"
 	"time"
 )
 
 func main() {
 	settings := iec61850.NewSettings()
-	c, err := client.NewClient(settings)
+	c, err := iec61850.NewClient(settings)
 	if err != nil {
 		panic(err)
 	}
@@ -25,6 +24,13 @@ func main() {
 		panic(err)
 	}
 
+	mmsValues, err := c.ReadDataSet("CNPDMONT/LLN0.dsState")
+	if err != nil {
+		panic(err)
+	}
+	for _, mmsValue := range mmsValues {
+		fmt.Printf("dataset value %v\n", mmsValue.Type)
+	}
 	time.Sleep(time.Millisecond * 200)
 	defer c.Close()
 }
