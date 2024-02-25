@@ -1,5 +1,6 @@
 package iec61850
 
+// #include <iec61850_client.h>
 import "C"
 import "github.com/spf13/cast"
 

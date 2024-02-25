@@ -12,11 +12,12 @@ type Client struct {
 	connected *atomic.Bool
 }
 
+// Settings 连接配置
 type Settings struct {
 	Host           string
 	Port           int
-	ConnectTimeout uint
-	RequestTimeout uint
+	ConnectTimeout uint // 连接超时配置，单位：毫秒
+	RequestTimeout uint // 请求超时配置，单位：毫秒
 }
 
 func NewSettings() *Settings {
@@ -28,6 +29,7 @@ func NewSettings() *Settings {
 	}
 }
 
+// NewClient 创建客户端实例
 func NewClient(settings *Settings) (*Client, error) {
 	conn, clientErr := connect(settings)
 	if err := GetIedClientError(clientErr); err != nil {
@@ -43,6 +45,7 @@ func NewClient(settings *Settings) (*Client, error) {
 	return connection, nil
 }
 
+// Write 写单个属性值，不支持Structure
 func (c *Client) Write(objectRef string, fc FC, value interface{}) error {
 	mmsType, err := c.GetVariableSpecType(objectRef, fc)
 	if err != nil {
@@ -143,7 +146,7 @@ func (c *Client) ReadString(objectRef string, fc FC) (string, error) {
 	return C.GoString(value), nil
 }
 
-// Read 读取数据
+// Read 读取属性数据
 func (c *Client) Read(objectRef string, fc FC) (interface{}, error) {
 	var clientError C.IedClientError
 	cObjectRef := C.CString(objectRef)
@@ -159,6 +162,7 @@ func (c *Client) Read(objectRef string, fc FC) (interface{}, error) {
 	return c.toGoValue(mmsValue, mmsType), nil
 }
 
+// ReadDataSet 读取DataSet
 func (c *Client) ReadDataSet(objectRef string) ([]*MmsValue, error) {
 	cObjectRef := C.CString(objectRef)
 	defer C.free(unsafe.Pointer(cObjectRef))
@@ -254,7 +258,7 @@ func (c *Client) toGoValue(mmsValue *C.MmsValue, mmsType MmsType) interface{} {
 		size := uint16(C.MmsValue_getOctetStringSize(mmsValue))
 		bytes := make([]byte, size)
 		for i := 0; i < int(size); i++ {
-			bytes[i] = uint8(C.getOctetStringOctet(mmsValue, C.int(i)))
+			bytes[i] = uint8(C.MmsValue_getOctetStringOctet(mmsValue, C.int(i)))
 		}
 		value = bytes
 	case BinaryTime:
@@ -284,6 +288,15 @@ func (c *Client) toGoStructure(mmsValue *C.MmsValue, mmsType MmsType) []*MmsValu
 	}
 }
 
+func (c *Client) getSubElementValue(sgcbVal *C.MmsValue, sgcbVarSpec *C.MmsVariableSpecification, name string) interface{} {
+	mmsPath := C.CString(name)
+	defer C.free(unsafe.Pointer(mmsPath))
+	mmsValue := C.MmsValue_getSubElement(sgcbVal, sgcbVarSpec, mmsPath)
+	defer C.MmsValue_delete(mmsValue)
+	return c.toGoValue(mmsValue, MmsType(C.MmsValue_getType(mmsValue)))
+}
+
+// connect 建立连接
 func connect(settings *Settings) (C.IedConnection, C.IedClientError) {
 	conn := C.IedConnection_create()
 	C.IedConnection_setConnectTimeout(conn, C.uint(settings.ConnectTimeout))
@@ -292,7 +305,6 @@ func connect(settings *Settings) (C.IedConnection, C.IedClientError) {
 	// 释放内存
 	defer C.free(unsafe.Pointer(host))
 	var err C.IedClientError
-	// 建立连接
 	C.IedConnection_connect(conn, &err, host, C.int(settings.Port))
 	return conn, err
 }

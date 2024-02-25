@@ -4,30 +4,27 @@ package iec61850
 import "C"
 import "unsafe"
 
-type commandTerminationHandler func(parameter unsafe.Pointer, control C.ControlObjectClient)
-
-// DirectControl 直接控制
-func (c *Client) DirectControl(objectRef string, value bool) error {
-	return c.control(objectRef, value, false, true, false, nil)
+// ControlForDirectWithNormalSecurity 控制模式 1[direct-with-normal-security]
+func (c *Client) ControlForDirectWithNormalSecurity(objectRef string, value bool) error {
+	return c.control(objectRef, value, false, true, false)
 }
 
-// DirectControlSelect 直接控制之前select
-func (c *Client) DirectControlSelect(objectRef string, value bool) error {
-	return c.control(objectRef, value, true, false, false, nil)
+// ControlForSboWithNormalSecurity 控制模式 2[sbo-with-normal-security]
+func (c *Client) ControlForSboWithNormalSecurity(objectRef string, value bool) error {
+	return c.control(objectRef, value, true, false, false)
 }
 
-// DirectControlWithEnhancedSecurity 增强安全直接控制
-func (c *Client) DirectControlWithEnhancedSecurity(objectRef string, value bool) error {
-	return c.control(objectRef, value, false, false, true, func(void unsafe.Pointer, control C.ControlObjectClient) {})
+// ControlForDirectWithEnhancedSecurity 控制模式 3[direct-with-enhanced-security]
+func (c *Client) ControlForDirectWithEnhancedSecurity(objectRef string, value bool) error {
+	return c.control(objectRef, value, false, false, true)
 }
 
-// DirectControlSelectWithEnhancedSecurity 增强安全直接控制之前select
-func (c *Client) DirectControlSelectWithEnhancedSecurity(objectRef string, value bool) error {
-	return c.control(objectRef, value, true, false, true, nil)
+// ControlForSboWithEnhancedSecurity 控制模式 4[sbo-with-enhanced-security]
+func (c *Client) ControlForSboWithEnhancedSecurity(objectRef string, value bool) error {
+	return c.control(objectRef, value, true, false, true)
 }
 
-// control for FC=CO
-func (c *Client) control(objectRef string, value, _select, direct, enhanced bool, handler commandTerminationHandler) error {
+func (c *Client) control(objectRef string, value, _select, direct, enhanced bool) error {
 	cObjectRef := C.CString(objectRef)
 	defer C.free(unsafe.Pointer(cObjectRef))
 
@@ -44,7 +41,7 @@ func (c *Client) control(objectRef string, value, _select, direct, enhanced bool
 
 	// Direct control with enhanced security
 	if enhanced {
-		C.ControlObjectClient_setCommandTerminationHandler(control, C.CommandTerminationHandler(handler), nil)
+		C.ControlObjectClient_setCommandTerminationHandler(control, nil, nil)
 	}
 	ctlVal := C.MmsValue_newBoolean(C.bool(value))
 	defer C.MmsValue_delete(ctlVal)
@@ -58,9 +55,7 @@ func (c *Client) control(objectRef string, value, _select, direct, enhanced bool
 	if direct {
 		C.ControlObjectClient_setOrigin(control, nil, 3)
 	}
-	if bool(C.ControlObjectClient_operate(control, ctlVal, 0)) {
-		return nil
-	} else {
-		return ControlObjectFail
-	}
+
+	C.ControlObjectClient_operate(control, ctlVal, 0)
+	return nil
 }

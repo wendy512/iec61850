@@ -16,5 +16,6 @@ import (
 
 	_ "github.com/wendy512/iec61850/libiec61850/lib/linux64"
 	_ "github.com/wendy512/iec61850/libiec61850/lib/linux_armv7l"
+	_ "github.com/wendy512/iec61850/libiec61850/lib/linux_armv8"
 	_ "github.com/wendy512/iec61850/libiec61850/lib/win64"
 )
