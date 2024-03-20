@@ -41,7 +41,7 @@ go get -u github.com/wendy512/iec61850
 - [创建服务端](test/server_test.go)
 
 ## 开源许可
-Stream 基于 [Apache License 2.0](./LICENSE) 协议，Stream 依赖了一些第三方组件，它们的开源协议也为 Apache License 2.0。
+iec61850 基于 [Apache License 2.0](./LICENSE) 协议，iec61850 依赖了一些第三方组件，它们的开源协议也为 Apache License 2.0。
 
 ## 联系方式
 

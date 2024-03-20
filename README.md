@@ -44,7 +44,7 @@ go get -u github.com/wendy512/iec61850
 - [Create server](test/server_test.go)
 
 ## License
-Stream is based on the [Apache License 2.0](./LICENSE) agreement, and Stream relies on some third-party components whose open source agreement is also Apache License 2.0.
+iec61850 is based on the [Apache License 2.0](./LICENSE) agreement, and iec61850 relies on some third-party components whose open source agreement is also Apache License 2.0.
 ## Contact
 
 - Email：<taowenwuit@gmail.com>
