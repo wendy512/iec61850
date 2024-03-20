@@ -47,5 +47,4 @@ go get -u github.com/wendy512/iec61850
 Stream is based on the [Apache License 2.0](./LICENSE) agreement, and Stream relies on some third-party components whose open source agreement is also Apache License 2.0.
 ## Contact
 
-- Email：<wendy512@yeah.net>
-- QQ：214566407
+- Email：<taowenwuit@gmail.com>
