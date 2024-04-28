@@ -21,10 +21,7 @@ iec61850 是实现 MMS、GOOSE 和 SV 协议的 IEC 61850 客户端和服务器�
 * 所有数据集服务（获取值、设置值、浏览）
 * 动态数据集服务（创建和删除）
 * 日志服务
-  ** 灵活的API连接自定义数据库
-  ** 附带 sqlite 实现
 * MMS文件服务（浏览、获取文件、设置文件、删除/重命名文件）
-  ** 需要下载 COMTRADE 文件
 * 设置组处理
 * 支持服务跟踪
 * GOOSE 和 SV 控制块处理
@@ -45,4 +42,4 @@ iec61850 基于 [Apache License 2.0](./LICENSE) 协议，iec61850 依赖了一�
 
 ## 联系方式
 
-- 邮箱：<taowenwuit@gmail.com>
+- 邮箱：<wendy512@yeah.net>
