@@ -3,7 +3,7 @@ package scl_xml
 import (
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"strings"
 )
@@ -130,6 +130,7 @@ type LN0 struct {
 	LnType   string    `xml:"lnType,attr"`
 	LnClass  string    `xml:"lnClass,attr"`
 	DataSets []DataSet `xml:"DataSet"`
+	DOI      []DOI     `xml:"DOI"`
 }
 
 type LN struct {
@@ -368,7 +369,7 @@ func GetSCL(path string) (SCL, error) {
 	}
 	defer xmlFile.Close()
 
-	byteValue, err := ioutil.ReadAll(xmlFile)
+	byteValue, err := io.ReadAll(xmlFile)
 	if err != nil {
 		return scl, err
 	}
