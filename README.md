@@ -1,6 +1,9 @@
 # iec61850
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
+[![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/wendy512/iec61850)](https://pkg.go.dev/mod/github.com/wendy512/iec61850)
+![Go Version](https://img.shields.io/badge/go%20version-%3E=1.0-61CFDD.svg?style=flat-square)
+[![Go Report Card](https://goreportcard.com/badge/github.com/wendy512/iec61850?style=flat-square)](https://goreportcard.com/report/github.com/wendy512/iec61850)
 
 English | [中文](README_zh_CN.md)
 
@@ -24,10 +27,7 @@ The library support the following IEC 61850 protocol features:
 * all data set services (get values, set values, browse)
 * dynamic data set services (create and delete)
 * log service
-  ** flexible API to connect custom data bases
-  ** comes with sqlite implementation
 * MMS file services (browse, get file, set file, delete/rename file)
-  ** required to download COMTRADE files
 * Setting group handling
 * Support for service tracking
 * GOOSE and SV control block handling
@@ -47,4 +47,4 @@ go get -u github.com/wendy512/iec61850
 iec61850 is based on the [Apache License 2.0](./LICENSE) agreement, and iec61850 relies on some third-party components whose open source agreement is also Apache License 2.0.
 ## Contact
 
-- Email：<taowenwuit@gmail.com>
+- Email：<wendy512@yeah.net>
