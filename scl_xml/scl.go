@@ -130,6 +130,7 @@ type LN0 struct {
 	LnType   string    `xml:"lnType,attr"`
 	LnClass  string    `xml:"lnClass,attr"`
 	DataSets []DataSet `xml:"DataSet"`
+	DOI      []DOI     `xml:"DOI"`
 }
 
 type LN struct {
