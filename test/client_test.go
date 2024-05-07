@@ -1,6 +1,8 @@
 package test
 
 import (
+	"encoding/json"
+	"fmt"
 	"github.com/wendy512/iec61850"
 	"testing"
 )
@@ -56,4 +58,22 @@ func doRead(t *testing.T, client *iec61850.Client, objectRef string, fc iec61850
 		t.FailNow()
 	}
 	t.Logf("read %s value -> %v", objectRef, value)
+}
+
+func TestGetLogicalDeviceList(t *testing.T) {
+	client, err := iec61850.NewClient(&iec61850.Settings{
+		Host:           "127.0.0.1",
+		Port:           10086,
+		ConnectTimeout: 10000,
+		RequestTimeout: 10000,
+	})
+	if err != nil {
+		panic(err)
+	}
+	deviceList := client.GetLogicalDeviceList()
+	marshal, err := json.Marshal(deviceList)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(string(marshal))
 }
