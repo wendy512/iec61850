@@ -2,6 +2,7 @@ package iec61850
 
 // #include <iec61850_client.h>
 import "C"
+import "unsafe"
 import "github.com/spf13/cast"
 
 func toMmsValue(mmsType MmsType, value interface{}) (*C.MmsValue, error) {
@@ -157,6 +158,7 @@ func toStringMmsValue(value interface{}) (*C.MmsValue, error) {
 		return nil, err
 	}
 	stringValue := C.CString(v)
+	defer C.free(unsafe.Pointer(stringValue))
 	mmsValue := C.MmsValue_newMmsString(stringValue)
 	return mmsValue, nil
 }
