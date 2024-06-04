@@ -185,6 +185,7 @@ func (c *Client) GetLogicalDeviceList() DataModel {
 			lnRef := fmt.Sprintf("%s/%s", ld.Data, C2GoStr((*C.char)(logicalNode.data)))
 
 			cRef := Go2CStr(lnRef)
+			defer C.free(unsafe.Pointer(cRef))
 			dataObjects := C.IedConnection_getLogicalNodeDirectory(c.conn, &clientError, cRef, C.ACSI_CLASS_DATA_OBJECT)
 			dataObject := dataObjects.next
 			for dataObject != nil {
@@ -203,7 +204,10 @@ func (c *Client) GetLogicalDeviceList() DataModel {
 
 			C.LinkedList_destroy(dataObjects)
 
-			dataSets := C.IedConnection_getLogicalNodeDirectory(c.conn, &clientError, Go2CStr(lnRef), C.ACSI_CLASS_DATA_SET)
+			clnRef := Go2CStr(lnRef)
+			defer C.free(unsafe.Pointer(clnRef))
+
+			dataSets := C.IedConnection_getLogicalNodeDirectory(c.conn, &clientError, clnRef, C.ACSI_CLASS_DATA_SET)
 			dataSet := dataSets.next
 			for dataSet != nil {
 				var ds DS
@@ -211,7 +215,11 @@ func (c *Client) GetLogicalDeviceList() DataModel {
 
 				var isDeletable C.bool
 				dataSetRef := fmt.Sprintf("%s.%s", lnRef, ds.Data)
-				dataSetMembers := C.IedConnection_getDataSetDirectory(c.conn, &clientError, Go2CStr(dataSetRef), &isDeletable)
+
+				cdataSetRef := Go2CStr(dataSetRef)
+				defer C.free(unsafe.Pointer(cdataSetRef))
+
+				dataSetMembers := C.IedConnection_getDataSetDirectory(c.conn, &clientError, cdataSetRef, &isDeletable)
 
 				if isDeletable {
 					fmt.Println(fmt.Sprintf("    Data set: %s (deletable)", ds.Data))
@@ -234,7 +242,10 @@ func (c *Client) GetLogicalDeviceList() DataModel {
 
 			C.LinkedList_destroy(dataSets)
 
-			reports := C.IedConnection_getLogicalNodeDirectory(c.conn, &clientError, Go2CStr(lnRef), C.ACSI_CLASS_URCB)
+			clnRef := Go2CStr(lnRef)
+			defer C.free(unsafe.Pointer(clnRef))
+
+			reports := C.IedConnection_getLogicalNodeDirectory(c.conn, &clientError, clnRef, C.ACSI_CLASS_URCB)
 			report := reports.next
 			for report != nil {
 				var r URReport
@@ -245,7 +256,10 @@ func (c *Client) GetLogicalDeviceList() DataModel {
 			}
 			C.LinkedList_destroy(reports)
 
-			reports = C.IedConnection_getLogicalNodeDirectory(c.conn, &clientError, Go2CStr(lnRef), C.ACSI_CLASS_BRCB)
+			clnRef := Go2CStr(lnRef)
+			defer C.free(unsafe.Pointer(clnRef))
+
+			reports = C.IedConnection_getLogicalNodeDirectory(c.conn, &clientError, clnRef, C.ACSI_CLASS_BRCB)
 			report = reports.next
 			for report != nil {
 				var r BRReport
@@ -274,7 +288,11 @@ func (c *Client) GetLogicalDeviceList() DataModel {
 func (c *Client) GetDAs(doRef string, das []DA) {
 
 	var clientError C.IedClientError
-	dataAttributes := C.IedConnection_getDataDirectory(c.conn, &clientError, Go2CStr(doRef))
+
+	cdoRef := Go2CStr(doRef)
+	defer C.free(unsafe.Pointer(cdoRef))
+
+	dataAttributes := C.IedConnection_getDataDirectory(c.conn, &clientError, cdoRef)
 	defer C.LinkedList_destroy(dataAttributes)
 	if dataAttributes != nil {
 		dataAttribute := dataAttributes.next

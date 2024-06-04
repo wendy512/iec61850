@@ -2,6 +2,7 @@ package iec61850
 
 // #include <iec61850_server.h>
 import "C"
+import "unsafe"
 
 type IedServer struct {
 	server C.IedServer
@@ -62,5 +63,7 @@ func (is *IedServer) UpdateInt32AttributeValue(attr *DataAttribute, value int32)
 
 // UpdateVisibleStringAttributeValue updates a DataAttribute with a visible string value.
 func (is *IedServer) UpdateVisibleStringAttributeValue(attr *DataAttribute, value string) {
-	C.IedServer_updateVisibleStringAttributeValue(is.server, attr.attribute, C.CString(value))
+	cvalue := C.CString(value)
+	defer C.free(unsafe.Pointer(cvalue))
+	C.IedServer_updateVisibleStringAttributeValue(is.server, attr.attribute, cvalue)
 }
