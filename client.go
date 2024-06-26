@@ -242,10 +242,10 @@ func (c *Client) GetLogicalDeviceList() DataModel {
 
 			C.LinkedList_destroy(dataSets)
 
-			clnRef := Go2CStr(lnRef)
-			defer C.free(unsafe.Pointer(clnRef))
+			clnRef1 := Go2CStr(lnRef)
+			defer C.free(unsafe.Pointer(clnRef1))
 
-			reports := C.IedConnection_getLogicalNodeDirectory(c.conn, &clientError, clnRef, C.ACSI_CLASS_URCB)
+			reports := C.IedConnection_getLogicalNodeDirectory(c.conn, &clientError, clnRef1, C.ACSI_CLASS_URCB)
 			report := reports.next
 			for report != nil {
 				var r URReport
@@ -256,10 +256,10 @@ func (c *Client) GetLogicalDeviceList() DataModel {
 			}
 			C.LinkedList_destroy(reports)
 
-			clnRef := Go2CStr(lnRef)
-			defer C.free(unsafe.Pointer(clnRef))
+			clnRef2 := Go2CStr(lnRef)
+			defer C.free(unsafe.Pointer(clnRef2))
 
-			reports = C.IedConnection_getLogicalNodeDirectory(c.conn, &clientError, clnRef, C.ACSI_CLASS_BRCB)
+			reports = C.IedConnection_getLogicalNodeDirectory(c.conn, &clientError, clnRef2, C.ACSI_CLASS_BRCB)
 			report = reports.next
 			for report != nil {
 				var r BRReport
@@ -380,8 +380,9 @@ func (c *Client) GetVariableSpecType(objectReference string, fc FC) (MmsType, er
 		default:
 			return Uint32, nil
 		}
+	default:
+		return mmsType, fmt.Errorf("unsupported type %d", mmsType)
 	}
-	return mmsType, nil
 }
 
 func (c *Client) toGoValue(mmsValue *C.MmsValue, mmsType MmsType) interface{} {
@@ -413,6 +414,8 @@ func (c *Client) toGoValue(mmsValue *C.MmsValue, mmsType MmsType) interface{} {
 		value = uint64(C.MmsValue_getBinaryTimeAsUtcMs(mmsValue))
 	case UTCTime:
 		value = uint32(C.MmsValue_toUnixTimestamp(mmsValue))
+	default:
+		panic(fmt.Sprintf("unsupported type %d", mmsType))
 	}
 	return value
 }
