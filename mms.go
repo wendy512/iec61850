@@ -62,7 +62,7 @@ func toMmsValue(mmsType MmsType, value interface{}) (*C.MmsValue, error) {
 			return nil, err
 		}
 	default:
-		return nil, UnSupportOperation
+		return nil, UnSupportedOperation
 	}
 	return mmsValue, nil
 }

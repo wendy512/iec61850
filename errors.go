@@ -36,7 +36,7 @@ var (
 	CreateControlObjectClientFail     = errors.New("control object not found in server")
 	ControlObjectFail                 = errors.New("control object fail")
 	ControlSelectFail                 = errors.New("select control fail")
-	UnSupportOperation                = errors.New("un support operation")
+	UnSupportedOperation              = errors.New("unsupported operation")
 )
 
 func GetIedClientError(err C.IedClientError) error {
