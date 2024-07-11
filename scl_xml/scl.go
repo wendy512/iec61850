@@ -3,7 +3,7 @@ package scl_xml
 import (
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"strings"
 )
@@ -369,7 +369,7 @@ func GetSCL(path string) (SCL, error) {
 	}
 	defer xmlFile.Close()
 
-	byteValue, err := ioutil.ReadAll(xmlFile)
+	byteValue, err := io.ReadAll(xmlFile)
 	if err != nil {
 		return scl, err
 	}

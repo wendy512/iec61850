@@ -122,7 +122,7 @@ func (c *Client) ReadUint32(objectRef string, fc FC) (uint32, error) {
 }
 
 // ReadFloat 读取float类型值
-func (c *Client) ReadFloat(objectRef string, fc FC) (float64, error) {
+func (c *Client) ReadFloat(objectRef string, fc FC) (float32, error) {
 	cObjectRef := C.CString(objectRef)
 	defer C.free(unsafe.Pointer(cObjectRef))
 
@@ -131,7 +131,8 @@ func (c *Client) ReadFloat(objectRef string, fc FC) (float64, error) {
 	if err := GetIedClientError(clientError); err != nil {
 		return 0, err
 	}
-	return float64(value), nil
+	//源码返回值是C的float，4byte，所以应返回float32，否则会出现其他问题
+	return float32(value), nil
 }
 
 // ReadString 读取string类型值
@@ -377,7 +378,7 @@ func (c *Client) toGoValue(mmsValue *C.MmsValue, mmsType MmsType) interface{} {
 	case Boolean:
 		value = bool(C.MmsValue_getBoolean(mmsValue))
 	case Float:
-		value = float64(C.MmsValue_toDouble(mmsValue))
+		value = float32(C.MmsValue_toFloat(mmsValue))
 	case String, VisibleString:
 		value = C.GoString(C.MmsValue_toString(mmsValue))
 	case Structure, Array:
