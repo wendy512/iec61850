@@ -3,6 +3,7 @@ package iec61850
 // #include <iec61850_client.h>
 // #include <iec61850_common.h>
 import "C"
+
 import (
 	"unsafe"
 )
@@ -45,7 +46,7 @@ func (c *Client) ReadRbcValues(objectReference string) (*ClientReportControlBloc
 		Ena:     c.getRbcEnable(rcb),
 		IntgPd:  int(c.getRbcIntgPd(rcb)),
 		TrgOps:  c.getTrgOps(rcb),
-		OptFlds: c.getOptFinds(rcb),
+		OptFlds: c.getOptFlds(rcb),
 	}, nil
 }
 
@@ -59,9 +60,9 @@ func (c *Client) getRbcIntgPd(rcb C.ClientReportControlBlock) uint32 {
 	return uint32(intgPd)
 }
 
-func (c *Client) getOptFinds(rcb C.ClientReportControlBlock) OptFlds {
-	optFinds := C.ClientReportControlBlock_getOptFlds(rcb)
-	g := int(optFinds)
+func (c *Client) getOptFlds(rcb C.ClientReportControlBlock) OptFlds {
+	optFlds := C.ClientReportControlBlock_getOptFlds(rcb)
+	g := int(optFlds)
 	return OptFlds{
 		SequenceNumber:     IsBitSet(g, 0),
 		TimeOfEntry:        IsBitSet(g, 1),
@@ -139,7 +140,7 @@ func (c *Client) SetRbcValues(objectReference string, settings ClientReportContr
 		optFlds = optFlds | C.RPT_OPT_CONF_REV
 	}
 
-	C.ClientReportControlBlock_setTrgOps(rcb, trgOps)                      //触发条件
+	C.ClientReportControlBlock_setTrgOps(rcb, trgOps)                      // 触发条件
 	C.ClientReportControlBlock_setRptEna(rcb, C.bool(settings.Ena))        // 报告使能
 	C.ClientReportControlBlock_setIntgPd(rcb, C.uint32_t(settings.IntgPd)) // 周期上送时间
 	C.ClientReportControlBlock_setOptFlds(rcb, optFlds)
@@ -148,4 +149,8 @@ func (c *Client) SetRbcValues(objectReference string, settings ClientReportContr
 		return err
 	}
 	return nil
+}
+
+func IsBitSet(val int, pos int) bool {
+	return (val & (1 << pos)) != 0
 }
