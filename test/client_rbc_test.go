@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/wendy512/iec61850"
+	"github.com/morris-kelly/iec61850"
 )
 
 func TestRBC(t *testing.T) {

@@ -32,7 +32,7 @@ iec61850 是实现 MMS、GOOSE 和 SV 协议的 IEC 61850 客户端和服务器�
 ## 如何使用
 
 ```shell
-go get -u github.com/wendy512/iec61850
+go get -u github.com/morris-kelly/iec61850
 ```
 
 - [客户端读和写入值](test/client_test.go)
