@@ -1,9 +1,9 @@
 # iec61850
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
-[![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/morris-kelly/iec61850)](https://pkg.go.dev/mod/github.com/morris-kelly/iec61850)
+[![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/wendy512/iec61850)](https://pkg.go.dev/mod/github.com/wendy512/iec61850)
 ![Go Version](https://img.shields.io/badge/go%20version-%3E=1.0-61CFDD.svg?style=flat-square)
-[![Go Report Card](https://goreportcard.com/badge/github.com/morris-kelly/iec61850?style=flat-square)](https://goreportcard.com/report/github.com/morris-kelly/iec61850)
+[![Go Report Card](https://goreportcard.com/badge/github.com/wendy512/iec61850?style=flat-square)](https://goreportcard.com/report/github.com/wendy512/iec61850)
 
 English | [中文](README_zh_CN.md)
 
@@ -37,7 +37,7 @@ The library support the following IEC 61850 protocol features:
 ## How to use
 
 ```shell
-go get -u github.com/morris-kelly/iec61850
+go get -u github.com/wendy512/iec61850
 ```
 
 - [Client reads and writes values](test/client_test.go)

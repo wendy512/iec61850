@@ -6,7 +6,7 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/morris-kelly/iec61850"
+	"github.com/wendy512/iec61850"
 )
 
 func TestCreateServerFromConfigFile(t *testing.T) {

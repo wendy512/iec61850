@@ -1,1 +1,1 @@
-package iec61850 // import "github.com/morris-kelly/iec61850"
+package iec61850 // import "github.com/wendy512/iec61850"
