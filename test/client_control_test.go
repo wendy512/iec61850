@@ -1,8 +1,9 @@
 package test
 
 import (
-	"github.com/wendy512/iec61850"
 	"testing"
+
+	"github.com/wendy512/iec61850"
 )
 
 func TestControl(t *testing.T) {

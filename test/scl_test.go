@@ -1,8 +1,9 @@
 package test
 
 import (
-	"github.com/wendy512/iec61850/scl_xml"
 	"testing"
+
+	"github.com/wendy512/iec61850/scl_xml"
 )
 
 func TestLoadIcdXml(t *testing.T) {

@@ -1,11 +1,12 @@
 package test
 
 import (
-	"github.com/wendy512/iec61850"
 	"os"
 	"os/signal"
 	"syscall"
 	"testing"
+
+	"github.com/wendy512/iec61850"
 )
 
 func TestCreateServerFromConfigFile(t *testing.T) {

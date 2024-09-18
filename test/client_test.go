@@ -3,8 +3,9 @@ package test
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/wendy512/iec61850"
 	"testing"
+
+	"github.com/wendy512/iec61850"
 )
 
 const (
