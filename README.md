@@ -24,10 +24,10 @@ The library support the following IEC 61850 protocol features:
 - Support for buffered and unbuffered reports
 - Online report control block configuration
 - Data access service (get data, set data)
-- online data model discovery and browsing
-- all data set services (get values, set values, browse)
-- dynamic data set services (create and delete)
-- log service
+- Online data model discovery and browsing
+- All data set services (get values, set values, browse)
+- Dynamic data set services (create and delete)
+- Log service
 - MMS file services (browse, get file, set file, delete/rename file)
 - Setting group handling
 - Support for service tracking
