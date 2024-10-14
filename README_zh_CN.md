@@ -1,6 +1,10 @@
 # iec61850
 
-[![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
+[![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](https://www.gnu.org/licenses/gpl-3.0.html)
+[![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/wendy512/iec61850)](https://pkg.go.dev/mod/github.com/wendy512/iec61850)
+![Go Version](https://img.shields.io/badge/go%20version-%3E=1.0-61CFDD.svg?style=flat-square)
+[![Go Report Card](https://goreportcard.com/badge/github.com/wendy512/iec61850?style=flat-square)](https://goreportcard.com/report/github.com/wendy512/iec61850)
+
 
 中文 | [English](README.md)
 
