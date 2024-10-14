@@ -4,11 +4,11 @@
 
 中文 | [English](README.md)
 
-cgo 版本的 IEC61850 库，参考[libiec61850](https://github.com/mz-automation/libiec61850)
+cgo 版本的 IEC 61850 库，参考[libiec61850](https://github.com/mz-automation/libiec61850)
 
 ## 概述
 
-iec61850 是实现 MMS、GOOSE 和 SV 协议的 IEC 61850 客户端和服务器库的开源 (Apache-2.0 license) 实现，它可用于在运行 Linux、Windows 的嵌入式系统和 PC 上实施符合 IEC 61850 的客户端和服务器应用程序。本项目依赖并参考了[libiec61850](https://github.com/mz-automation/libiec61850)。
+iec61850 是实现 MMS、GOOSE 和 SV 协议的 IEC 61850 客户端和服务器库的开源 (GPL-3.0 license) 实现，它可用于在运行 Linux、Windows 的嵌入式系统和 PC 上实施符合 IEC 61850 的客户端和服务器应用程序。本项目依赖并参考了[libiec61850](https://github.com/mz-automation/libiec61850)。
 
 ## 功能特性
 

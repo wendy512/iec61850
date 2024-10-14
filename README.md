@@ -7,11 +7,11 @@
 
 English | [中文](README_zh_CN.md)
 
-cgo version of IEC61850 library, reference [libiec61850](https://github.com/mz-automation/libiec61850)
+cgo version of IEC 61850 library, reference [libiec61850](https://github.com/mz-automation/libiec61850)
 
 ## Overview
 
-iec61850 is an open source (Apache-2.0 license) implementation of the IEC 61850 client and server library that implements the MMS, GOOSE and SV protocols.
+iec61850 is an open source (GPL-3.0 license) implementation of the IEC 61850 client and server library that implements the MMS, GOOSE and SV protocols.
 It can be used to implement IEC 61850 compliant clients and PCs on embedded systems and PCs running Linux, Windows Server application.
 This project relies on and refers to [libiec61850](https://github.com/mz-automation/libiec61850).
 
