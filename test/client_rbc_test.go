@@ -2,9 +2,8 @@ package test
 
 import (
 	"fmt"
-	"testing"
-
 	"github.com/wendy512/iec61850"
+	"testing"
 )
 
 func TestRBC(t *testing.T) {
