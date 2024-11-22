@@ -382,7 +382,7 @@ func (c *Client) GetVariableSpecType(objectReference string, fc FC) (MmsType, er
 			return Uint32, nil
 		}
 	default:
-		return mmsType, fmt.Errorf("unsupported type %d", mmsType)
+		return mmsType, nil
 	}
 }
 
