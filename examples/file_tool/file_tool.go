@@ -32,7 +32,7 @@ func run() error {
 	flag.Parse()
 
 	if flag.NArg() < 1 {
-		fmt.Println("Usage: file-tool [options] <operation> [<parameters>]")
+		fmt.Println("Usage: file_tool [options] <operation> [<parameters>]")
 		fmt.Println("Options:")
 		fmt.Println("  -h <hostname/IP>")
 		fmt.Println("  -p portnumber")
