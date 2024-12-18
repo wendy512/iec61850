@@ -37,6 +37,7 @@ var (
 	ControlObjectFail                 = errors.New("control object fail")
 	ControlSelectFail                 = errors.New("select control fail")
 	UnSupportedOperation              = errors.New("unsupported operation")
+	ReadDataAccessError               = errors.New("data access error")
 )
 
 func GetIedClientError(err C.IedClientError) error {

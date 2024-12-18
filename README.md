@@ -40,10 +40,16 @@ The library support the following IEC 61850 protocol features:
 go get -u github.com/wendy512/iec61850
 ```
 
-- [Client reads and writes values](test/client_test.go)
-- [Client control](test/client_control_test.go)
-- [Client reads icd file](test/scl_test.go)
-- [Create server](test/server_test.go)
+- [Client control operations](test/client_control/client_control_test.go)
+- [Client rcb operations](test/client_rcb/client_rcb_test.go)
+- [Client read and write](test/client_rw)
+- [Client setting groups](test/client_sg/client_sg_test.go)
+- [Create tls client](test/tls_client/client_read_test.go)
+- [Server handle write access](test/server/complexModel_test.go)
+- [Server handle control](test/server/simpleIO_control_test.go)
+- [Server handle direct control](test/server/simpleIO_direct_control_goose_test.go)
+- [Create tls server](test/tls_server/tls_server_test.go)
+
 
 ## License
 

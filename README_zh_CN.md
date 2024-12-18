@@ -39,10 +39,15 @@ iec61850 是实现 MMS、GOOSE 和 SV 协议的 IEC 61850 客户端和服务器�
 go get -u github.com/wendy512/iec61850
 ```
 
-- [客户端读和写入值](test/client_test.go)
-- [客户端控制](test/client_control_test.go)
-- [客户端读取 icd 文件](test/scl_test.go)
-- [创建服务端](test/server_test.go)
+- [客户端控制](test/client_control/client_control_test.go)
+- [客户端RCB](test/client_rcb/client_rcb_test.go)
+- [客户端读取和写入](test/client_rw)
+- [客户端SettingGroups](test/client_sg/client_sg_test.go)
+- [创建tls客户端](test/tls_client/client_read_test.go)
+- [服务端处理写入操作](test/server/complexModel_test.go)
+- [服务端处理控制操作](test/server/simpleIO_control_test.go)
+- [服务端定时更新](test/server/simpleIO_direct_control_goose_test.go)
+- [创建tls服务端](test/tls_server/tls_server_test.go)
 
 ## 开源许可
 

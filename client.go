@@ -3,13 +3,13 @@ package iec61850
 // #include <iec61850_client.h>
 import "C"
 import (
-	"fmt"
 	"sync/atomic"
 	"unsafe"
 )
 
 type Client struct {
 	conn      C.IedConnection
+	tlsConfig C.TLSConfiguration
 	connected *atomic.Bool
 }
 
@@ -21,8 +21,8 @@ type Settings struct {
 	RequestTimeout uint // 请求超时配置，单位：毫秒
 }
 
-func NewSettings() *Settings {
-	return &Settings{
+func NewSettings() Settings {
+	return Settings{
 		Host:           "localhost",
 		Port:           102,
 		ConnectTimeout: 10000,
@@ -30,20 +30,30 @@ func NewSettings() *Settings {
 	}
 }
 
+func NewClientWithTlsSupport(settings Settings, tlsConfig *TLSConfig) (*Client, error) {
+	return newClient(settings, tlsConfig)
+}
+
+func NewClientWithDefaultSettings() (*Client, error) {
+	return newClient(NewSettings(), nil)
+}
+
 // NewClient 创建客户端实例
-func NewClient(settings *Settings) (*Client, error) {
-	conn, clientErr := connect(settings)
-	if err := GetIedClientError(clientErr); err != nil {
+func NewClient(settings Settings) (*Client, error) {
+	return newClient(settings, nil)
+}
+
+func newClient(settings Settings, tlsConfig *TLSConfig) (*Client, error) {
+	client := &Client{}
+
+	if err := client.connect(settings, tlsConfig); err != nil {
 		return nil, err
 	}
 
 	connected := &atomic.Bool{}
 	connected.Store(true)
-	connection := &Client{
-		conn:      conn,
-		connected: connected,
-	}
-	return connection, nil
+	client.connected = connected
+	return client, nil
 }
 
 // Write 写单个属性值，不支持Structure
@@ -161,154 +171,7 @@ func (c *Client) Read(objectRef string, fc FC) (interface{}, error) {
 
 	defer C.MmsValue_delete(mmsValue)
 	mmsType := MmsType(C.MmsValue_getType(mmsValue))
-	return c.toGoValue(mmsValue, mmsType), nil
-}
-
-func (c *Client) GetLogicalDeviceList() DataModel {
-	var clientError C.IedClientError
-	deviceList := C.IedConnection_getLogicalDeviceList(c.conn, &clientError)
-
-	var dataModel DataModel
-
-	device := deviceList.next
-	for device != nil {
-
-		var ld LD
-		ld.Data = C2GoStr((*C.char)(device.data))
-
-		logicalNodes := C.IedConnection_getLogicalDeviceDirectory(c.conn, &clientError, (*C.char)(device.data))
-		logicalNode := logicalNodes.next
-
-		for logicalNode != nil {
-			var ln LN
-			ln.Data = C2GoStr((*C.char)(logicalNode.data))
-
-			lnRef := fmt.Sprintf("%s/%s", ld.Data, C2GoStr((*C.char)(logicalNode.data)))
-
-			cRef := Go2CStr(lnRef)
-			defer C.free(unsafe.Pointer(cRef))
-			dataObjects := C.IedConnection_getLogicalNodeDirectory(c.conn, &clientError, cRef, C.ACSI_CLASS_DATA_OBJECT)
-			dataObject := dataObjects.next
-			for dataObject != nil {
-				var do DO
-				do.Data = C2GoStr((*C.char)(dataObject.data))
-
-				dataObject = dataObject.next
-				doRef := fmt.Sprintf("%s/%s.%s", C2GoStr((*C.char)(device.data)), C2GoStr((*C.char)(logicalNode.data)), do.Data)
-
-				var das []DA
-				c.GetDAs(doRef, das)
-
-				do.DAs = das
-				ln.DOs = append(ln.DOs, do)
-			}
-
-			C.LinkedList_destroy(dataObjects)
-
-			clnRef := Go2CStr(lnRef)
-			defer C.free(unsafe.Pointer(clnRef))
-
-			dataSets := C.IedConnection_getLogicalNodeDirectory(c.conn, &clientError, clnRef, C.ACSI_CLASS_DATA_SET)
-			dataSet := dataSets.next
-			for dataSet != nil {
-				var ds DS
-				ds.Data = C2GoStr((*C.char)(dataSet.data))
-
-				var isDeletable C.bool
-				dataSetRef := fmt.Sprintf("%s.%s", lnRef, ds.Data)
-
-				cdataSetRef := Go2CStr(dataSetRef)
-				defer C.free(unsafe.Pointer(cdataSetRef))
-
-				dataSetMembers := C.IedConnection_getDataSetDirectory(c.conn, &clientError, cdataSetRef, &isDeletable)
-
-				if isDeletable {
-					fmt.Println(fmt.Sprintf("    Data set: %s (deletable)", ds.Data))
-				} else {
-					fmt.Println(fmt.Sprintf("    Data set: %s (not deletable)", ds.Data))
-				}
-
-				dataSetMemberRef := dataSetMembers.next
-				for dataSetMemberRef != nil {
-					var dsRef DSRef
-					dsRef.Data = C2GoStr((*C.char)(dataSetMemberRef.data))
-					ds.DSRefs = append(ds.DSRefs, dsRef)
-
-					dataSetMemberRef = dataSetMemberRef.next
-				}
-				C.LinkedList_destroy(dataSetMembers)
-				dataSet = dataSet.next
-				ln.DSs = append(ln.DSs, ds)
-			}
-
-			C.LinkedList_destroy(dataSets)
-
-			clnRef1 := Go2CStr(lnRef)
-			defer C.free(unsafe.Pointer(clnRef1))
-
-			reports := C.IedConnection_getLogicalNodeDirectory(c.conn, &clientError, clnRef1, C.ACSI_CLASS_URCB)
-			report := reports.next
-			for report != nil {
-				var r URReport
-				r.Data = C2GoStr((*C.char)(report.data))
-				ln.URReports = append(ln.URReports, r)
-
-				report = report.next
-			}
-			C.LinkedList_destroy(reports)
-
-			clnRef2 := Go2CStr(lnRef)
-			defer C.free(unsafe.Pointer(clnRef2))
-
-			reports = C.IedConnection_getLogicalNodeDirectory(c.conn, &clientError, clnRef2, C.ACSI_CLASS_BRCB)
-			report = reports.next
-			for report != nil {
-				var r BRReport
-				r.Data = C2GoStr((*C.char)(report.data))
-				ln.BRReports = append(ln.BRReports, r)
-
-				report = report.next
-			}
-
-			C.LinkedList_destroy(reports)
-
-			ld.LNs = append(ld.LNs, ln)
-
-			logicalNode = logicalNode.next
-		}
-		C.LinkedList_destroy(logicalNodes)
-
-		dataModel.LDs = append(dataModel.LDs, ld)
-
-		device = device.next
-	}
-	C.LinkedList_destroy(deviceList)
-	return dataModel
-}
-
-func (c *Client) GetDAs(doRef string, das []DA) {
-
-	var clientError C.IedClientError
-
-	cdoRef := Go2CStr(doRef)
-	defer C.free(unsafe.Pointer(cdoRef))
-
-	dataAttributes := C.IedConnection_getDataDirectory(c.conn, &clientError, cdoRef)
-	defer C.LinkedList_destroy(dataAttributes)
-	if dataAttributes != nil {
-		dataAttribute := dataAttributes.next
-
-		for dataAttribute != nil {
-			var da DA
-			da.Data = C2GoStr((*C.char)(dataAttribute.data))
-			das = append(das, da)
-
-			dataAttribute = dataAttribute.next
-			daRef := fmt.Sprintf("%s.%s", doRef, da.Data)
-			c.GetDAs(daRef, das)
-		}
-	}
-
+	return toGoValue(mmsValue, mmsType)
 }
 
 // ReadDataSet 读取DataSet
@@ -330,9 +193,14 @@ func (c *Client) ReadDataSet(objectRef string) ([]*MmsValue, error) {
 	for i := 0; i < dataSetSize; i++ {
 		value := C.MmsValue_getElement(dataSetValues, C.int(i))
 		mmsType := MmsType(C.MmsValue_getType(value))
+		goValue, err := toGoValue(value, mmsType)
+		if err != nil {
+			return nil, err
+		}
+
 		mmsValue := &MmsValue{
 			Type:  mmsType,
-			Value: c.toGoValue(value, mmsType),
+			Value: goValue,
 		}
 		mmsValues[i] = mmsValue
 	}
@@ -343,6 +211,10 @@ func (c *Client) ReadDataSet(objectRef string) ([]*MmsValue, error) {
 func (c *Client) Close() {
 	if c.conn != nil && c.connected.CompareAndSwap(true, false) {
 		C.IedConnection_destroy(c.conn)
+
+		if c.tlsConfig != nil {
+			C.TLSConfiguration_destroy(c.tlsConfig)
+		}
 	}
 }
 
@@ -386,77 +258,46 @@ func (c *Client) GetVariableSpecType(objectReference string, fc FC) (MmsType, er
 	}
 }
 
-func (c *Client) toGoValue(mmsValue *C.MmsValue, mmsType MmsType) interface{} {
-	var value interface{}
-
-	switch mmsType {
-	case Integer:
-		value = int64(C.MmsValue_toInt64(mmsValue))
-	case Unsigned:
-		value = uint32(C.MmsValue_toUint32(mmsValue))
-	case Boolean:
-		value = bool(C.MmsValue_getBoolean(mmsValue))
-	case Float:
-		value = float32(C.MmsValue_toFloat(mmsValue))
-	case String, VisibleString:
-		value = C.GoString(C.MmsValue_toString(mmsValue))
-	case Structure, Array:
-		value = c.toGoStructure(mmsValue, mmsType)
-	case BitString:
-		value = uint32(C.MmsValue_getBitStringAsInteger(mmsValue))
-	case OctetString:
-		size := uint16(C.MmsValue_getOctetStringSize(mmsValue))
-		bytes := make([]byte, size)
-		for i := 0; i < int(size); i++ {
-			bytes[i] = uint8(C.MmsValue_getOctetStringOctet(mmsValue, C.int(i)))
-		}
-		value = bytes
-	case BinaryTime:
-		value = uint64(C.MmsValue_getBinaryTimeAsUtcMs(mmsValue))
-	case UTCTime:
-		value = uint32(C.MmsValue_toUnixTimestamp(mmsValue))
-	default:
-		panic(fmt.Sprintf("unsupported type %d", mmsType))
-	}
-	return value
-}
-
-func (c *Client) toGoStructure(mmsValue *C.MmsValue, mmsType MmsType) []*MmsValue {
-	if mmsType != Structure {
-		return nil
-	}
-	mmsValues := make([]*MmsValue, 0)
-	for i := 0; ; i++ {
-		value := C.MmsValue_getElement(mmsValue, C.int(i))
-		// 读不到表示节点下没有属性了
-		if value == nil {
-			return mmsValues
-		}
-		valueType := MmsType(C.MmsValue_getType(value))
-		mmsValues = append(mmsValues, &MmsValue{
-			Type:  valueType,
-			Value: c.toGoValue(value, valueType),
-		})
-	}
-}
-
-func (c *Client) getSubElementValue(sgcbVal *C.MmsValue, sgcbVarSpec *C.MmsVariableSpecification, name string) interface{} {
+func (c *Client) getSubElementValue(sgcbVal *C.MmsValue, sgcbVarSpec *C.MmsVariableSpecification, name string) (interface{}, error) {
 	mmsPath := C.CString(name)
 	defer C.free(unsafe.Pointer(mmsPath))
 	mmsValue := C.MmsValue_getSubElement(sgcbVal, sgcbVarSpec, mmsPath)
 	defer C.MmsValue_delete(mmsValue)
-	return c.toGoValue(mmsValue, MmsType(C.MmsValue_getType(mmsValue)))
+	return toGoValue(mmsValue, MmsType(C.MmsValue_getType(mmsValue)))
 }
 
 // connect 建立连接
-func connect(settings *Settings) (C.IedConnection, C.IedClientError) {
-	conn := C.IedConnection_create()
+func (c *Client) connect(settings Settings, tlsConfig *TLSConfig) error {
+	var conn C.IedConnection
+
+	if tlsConfig != nil {
+		_tlsConfig, err := tlsConfig.createCTlsConfig()
+		if err != nil {
+			return err
+		}
+
+		c.tlsConfig = _tlsConfig
+		conn = C.IedConnection_createWithTlsSupport(_tlsConfig)
+	} else {
+		conn = C.IedConnection_create()
+	}
+
 	C.IedConnection_setConnectTimeout(conn, C.uint(settings.ConnectTimeout))
 	C.IedConnection_setRequestTimeout(conn, C.uint(settings.RequestTimeout))
 	host := C.CString(settings.Host)
 	// 释放内存
 	defer C.free(unsafe.Pointer(host))
-	var err C.IedClientError
-	C.IedConnection_connect(conn, &err, host, C.int(settings.Port))
-	return conn, err
+
+	var clientError C.IedClientError
+	C.IedConnection_connect(conn, &clientError, host, C.int(settings.Port))
+
+	if err := GetIedClientError(clientError); err != nil {
+		if c.tlsConfig != nil {
+			C.TLSConfiguration_destroy(c.tlsConfig)
+		}
+		return err
+	}
+
+	c.conn = conn
+	return nil
 }

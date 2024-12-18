@@ -1,29 +1,31 @@
-package test
+package client_rcb
 
 import (
-	"fmt"
 	"github.com/wendy512/iec61850"
+	"github.com/wendy512/iec61850/test"
+	"log"
 	"testing"
 )
 
 func TestRBC(t *testing.T) {
-	client, err := iec61850.NewClient(iec61850.NewSettings())
+	client := test.CreateClient(t)
+	defer test.CloseClient(client)
+
+	objectRef := "simpleIOGenericIO/GGIO1.SPCSO1.stVal"
+	value, err := client.Read(objectRef, iec61850.ST)
 	if err != nil {
 		t.Fatal(err)
 	}
-	read, err := client.Read("CL10002ALD0/DevAlmGGIO1.Beh.stVal", iec61850.ST)
+	log.Printf("%s -> %v\n", objectRef, value)
+
+	rbcRef := "simpleIOGenericIO/LLN0.RP.EventsRCB01"
+	rcbValue, err := client.GetRCBValues(rbcRef)
 	if err != nil {
-		return
+		t.Fatal(err)
 	}
-	fmt.Println(read)
-	rbcRef := "CL10002ALD0/LLN0.BR.brcbRelayEna02"
-	values, err := client.ReadRbcValues(rbcRef)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	t.Log(values)
-	err = client.SetRbcValues(rbcRef, iec61850.ClientReportControlBlock{
+	log.Printf("write before %s -> %#v\n", rbcRef, rcbValue)
+
+	err = client.SetRCBValues(rbcRef, iec61850.ClientReportControlBlock{
 		Ena:    true,
 		IntgPd: 500,
 		OptFlds: iec61850.OptFlds{
@@ -46,13 +48,13 @@ func TestRBC(t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Error(err)
-		return
+		t.Fatal(err)
 	}
-	values, err = client.ReadRbcValues(rbcRef)
+
+	rcbValue, err = client.GetRCBValues(rbcRef)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	t.Log(values)
+	log.Printf("write after %s -> %#v\n", rbcRef, rcbValue)
 }

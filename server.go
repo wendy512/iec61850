@@ -2,16 +2,45 @@ package iec61850
 
 // #include <iec61850_server.h>
 import "C"
-import "unsafe"
+import (
+	"unsafe"
+)
 
 type IedServer struct {
-	server C.IedServer
+	server              C.IedServer
+	serverConfig        ServerConfig
+	tlsConfig           C.TLSConfiguration
+	clientAuthenticator ClientAuthenticator
 }
 
-// NewServer creates a new instance of the IedServer using the provided model.
-func NewServer(model *IedModel) *IedServer {
+func NewServerWithTlsSupport(serverConfig ServerConfig, tlsConfig *TLSConfig, iedModel *IedModel) (*IedServer, error) {
+	cTlsConfig, err := tlsConfig.createCTlsConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	config := serverConfig.createIedServerConfig(serverConfig)
+	defer C.IedServerConfig_destroy(config)
 	return &IedServer{
-		server: C.IedServer_create(model.model),
+		server:       C.IedServer_createWithConfig(iedModel._iedModel, cTlsConfig, config),
+		serverConfig: serverConfig,
+		tlsConfig:    cTlsConfig,
+	}, nil
+}
+
+func NewServerWithConfig(serverConfig ServerConfig, iedModel *IedModel) *IedServer {
+	config := serverConfig.createIedServerConfig(serverConfig)
+	defer C.IedServerConfig_destroy(config)
+	return &IedServer{
+		server:       C.IedServer_createWithConfig(iedModel._iedModel, nil, config),
+		serverConfig: serverConfig,
+	}
+}
+
+// NewServer creates a new instance of the IedServer using the provided _iedModel.
+func NewServer(iedModel *IedModel) *IedServer {
+	return &IedServer{
+		server: C.IedServer_create(iedModel._iedModel),
 	}
 }
 
@@ -36,34 +65,43 @@ func (is *IedServer) Destroy() {
 	C.IedServer_destroy(is.server)
 }
 
-// LockDataModel locks the data model of the IedServer.
+// LockDataModel locks the data _iedModel of the IedServer.
 func (is *IedServer) LockDataModel() {
 	C.IedServer_lockDataModel(is.server)
 }
 
-// UnlockDataModel unlocks the data model of the IedServer.
+// UnlockDataModel unlocks the data _iedModel of the IedServer.
 func (is *IedServer) UnlockDataModel() {
 	C.IedServer_unlockDataModel(is.server)
 }
 
 // UpdateUTCTimeAttributeValue updates a DataAttribute with a UTC time value.
-func (is *IedServer) UpdateUTCTimeAttributeValue(attr *DataAttribute, value int64) {
-	C.IedServer_updateUTCTimeAttributeValue(is.server, attr.attribute, C.uint64_t(value))
+func (is *IedServer) UpdateUTCTimeAttributeValue(node *ModelNode, value int64) {
+	if node == nil || node._modelNode == nil {
+		return
+	}
+	C.IedServer_updateUTCTimeAttributeValue(is.server, (*C.DataAttribute)(node._modelNode), C.uint64_t(value))
 }
 
 // UpdateFloatAttributeValue updates a DataAttribute with a float value.
-func (is *IedServer) UpdateFloatAttributeValue(attr *DataAttribute, value float32) {
-	C.IedServer_updateFloatAttributeValue(is.server, attr.attribute, C.float(value))
+func (is *IedServer) UpdateFloatAttributeValue(node *ModelNode, value float32) {
+	if node == nil || node._modelNode == nil {
+		return
+	}
+	C.IedServer_updateFloatAttributeValue(is.server, (*C.DataAttribute)(node._modelNode), C.float(value))
 }
 
 // UpdateInt32AttributeValue updates a DataAttribute with an Int32 value.
-func (is *IedServer) UpdateInt32AttributeValue(attr *DataAttribute, value int32) {
-	C.IedServer_updateInt32AttributeValue(is.server, attr.attribute, C.int32_t(value))
+func (is *IedServer) UpdateInt32AttributeValue(node *ModelNode, value int32) {
+	if node == nil || node._modelNode == nil {
+		return
+	}
+	C.IedServer_updateInt32AttributeValue(is.server, (*C.DataAttribute)(node._modelNode), C.int32_t(value))
 }
 
 // UpdateVisibleStringAttributeValue updates a DataAttribute with a visible string value.
 func (is *IedServer) UpdateVisibleStringAttributeValue(attr *DataAttribute, value string) {
-	cvalue := C.CString(value)
-	defer C.free(unsafe.Pointer(cvalue))
-	C.IedServer_updateVisibleStringAttributeValue(is.server, attr.attribute, cvalue)
+	cValue := C.CString(value)
+	defer C.free(unsafe.Pointer(cValue))
+	C.IedServer_updateVisibleStringAttributeValue(is.server, attr.attribute, cValue)
 }

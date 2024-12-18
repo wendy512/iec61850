@@ -111,18 +111,18 @@ type IED struct {
 	Type          string        `xml:"type,attr"`
 	Desc          string        `xml:"desc,attr"`
 	ConfigVersion string        `xml:"configVersion,attr"`
-	AccessPoint   []AccessPoint `xml:"AccessPoint"`
+	AccessPoint   []AccessPoint `xml:"AccessPoints"`
 }
 
 type AccessPoint struct {
 	Name    string    `xml:"name,attr"`
-	LDevice []LDevice `xml:"Server>LDevice"`
+	LDevice []LDevice `xml:"Server>LDevices"`
 }
 
 type LDevice struct {
 	Inst string `xml:"inst,attr"`
 	LN   []LN   `xml:"LN"`
-	LN0  LN0    `xml:"LN0"`
+	LN0  LN0    `xml:"logicalNodes"`
 }
 
 type LN0 struct {

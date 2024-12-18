@@ -34,7 +34,7 @@ type ClientReportControlBlock struct {
 	OptFlds OptFlds // 报告选项
 }
 
-func (c *Client) ReadRbcValues(objectReference string) (*ClientReportControlBlock, error) {
+func (c *Client) GetRCBValues(objectReference string) (*ClientReportControlBlock, error) {
 	var clientError C.IedClientError
 	cObjectRef := C.CString(objectReference)
 	defer C.free(unsafe.Pointer(cObjectRef))
@@ -43,19 +43,19 @@ func (c *Client) ReadRbcValues(objectReference string) (*ClientReportControlBloc
 		return nil, GetIedClientError(clientError)
 	}
 	return &ClientReportControlBlock{
-		Ena:     c.getRbcEnable(rcb),
-		IntgPd:  int(c.getRbcIntgPd(rcb)),
+		Ena:     c.getRCBEnable(rcb),
+		IntgPd:  int(c.getRCBIntgPd(rcb)),
 		TrgOps:  c.getTrgOps(rcb),
 		OptFlds: c.getOptFlds(rcb),
 	}, nil
 }
 
-func (c *Client) getRbcEnable(rcb C.ClientReportControlBlock) bool {
+func (c *Client) getRCBEnable(rcb C.ClientReportControlBlock) bool {
 	enable := C.ClientReportControlBlock_getRptEna(rcb)
 	return bool(enable)
 }
 
-func (c *Client) getRbcIntgPd(rcb C.ClientReportControlBlock) uint32 {
+func (c *Client) getRCBIntgPd(rcb C.ClientReportControlBlock) uint32 {
 	intgPd := C.ClientReportControlBlock_getIntgPd(rcb)
 	return uint32(intgPd)
 }
@@ -88,7 +88,7 @@ func (c *Client) getTrgOps(rcb C.ClientReportControlBlock) TrgOps {
 	}
 }
 
-func (c *Client) SetRbcValues(objectReference string, settings ClientReportControlBlock) error {
+func (c *Client) SetRCBValues(objectReference string, settings ClientReportControlBlock) error {
 	var clientError C.IedClientError
 	cObjectRef := C.CString(objectReference)
 	defer C.free(unsafe.Pointer(cObjectRef))

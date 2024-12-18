@@ -95,6 +95,8 @@ struct sMmsConnection {
 
     Semaphore outstandingCallsLock;
     MmsOutstandingCall outstandingCalls;
+    int maxOutstandingCalled;
+    int maxOutstandingCalling;
 
     uint32_t requestTimeout;
     uint32_t connectTimeout;

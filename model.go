@@ -8,19 +8,35 @@ import (
 )
 
 type IedModel struct {
-	model *C.IedModel
+	_iedModel *C.IedModel
+}
+
+type ModelNode struct {
+	ObjectReference string
+	_modelNode      unsafe.Pointer
 }
 
 func NewIedModel(name string) *IedModel {
 	cname := C.CString(name)
 	defer C.free(unsafe.Pointer(cname))
 	return &IedModel{
-		model: C.IedModel_create(cname),
+		_iedModel: C.IedModel_create(cname),
 	}
 }
 
 func (m *IedModel) Destroy() {
-	C.IedModel_destroy(m.model)
+	C.IedModel_destroy(m._iedModel)
+}
+
+func (m *IedModel) GetModelNodeByObjectReference(objectRef string) *ModelNode {
+	cObjectRef := C.CString(objectRef)
+	defer C.free(unsafe.Pointer(cObjectRef))
+
+	do := C.IedModel_getModelNodeByObjectReference(m._iedModel, cObjectRef)
+	if do == nil {
+		return nil
+	}
+	return &ModelNode{_modelNode: unsafe.Pointer(do), ObjectReference: objectRef}
 }
 
 func CreateModelFromConfigFileEx(filepath string) (*IedModel, error) {
@@ -33,7 +49,7 @@ func CreateModelFromConfigFileEx(filepath string) (*IedModel, error) {
 	// 释放内存
 	defer C.free(unsafe.Pointer(cFilepath))
 	model := &IedModel{
-		model: C.ConfigFileParser_createModelFromConfigFileEx(cFilepath),
+		_iedModel: C.ConfigFileParser_createModelFromConfigFileEx(cFilepath),
 	}
 	return model, nil
 }
@@ -46,7 +62,7 @@ func (m *IedModel) CreateLogicalDevice(name string) *LogicalDevice {
 	cname := C.CString(name)
 	defer C.free(unsafe.Pointer(cname))
 	return &LogicalDevice{
-		device: C.LogicalDevice_create(cname, m.model),
+		device: C.LogicalDevice_create(cname, m._iedModel),
 	}
 }
 

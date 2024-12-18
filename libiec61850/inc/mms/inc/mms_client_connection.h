@@ -161,6 +161,16 @@ LIB61850_API void
 MmsConnection_setRequestTimeout(MmsConnection self, uint32_t timeoutInMs);
 
 /**
+ * \brief Set the maximum number outstanding calls allowed for this connection
+ *
+ * \param self MmsConnection instance to operate on
+ * \param calling the maximum outstanding calls allowed by the caller (client)
+ * \param called the maximum outstanding calls allowed by the called endpoint (server)
+ */
+LIB61850_API void
+MmsConnnection_setMaxOutstandingCalls(MmsConnection self, int calling, int called);
+
+/**
  * \brief Get the request timeout in ms for this connection
  *
  * \param self MmsConnection instance to operate on

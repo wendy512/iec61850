@@ -69,6 +69,7 @@ struct sIedConnection
 
     Semaphore outstandingCallsLock;
     IedConnectionOutstandingCall outstandingCalls;
+    int maxOutstandingCalled;
 
     IedConnectionClosedHandler connectionCloseHandler;
     void* connectionClosedParameter;

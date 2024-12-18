@@ -2,8 +2,11 @@ package iec61850
 
 // #include <iec61850_client.h>
 import "C"
-import "unsafe"
-import "github.com/spf13/cast"
+import (
+	"fmt"
+	"github.com/spf13/cast"
+	"unsafe"
+)
 
 func toMmsValue(mmsType MmsType, value interface{}) (*C.MmsValue, error) {
 	var (
@@ -65,6 +68,75 @@ func toMmsValue(mmsType MmsType, value interface{}) (*C.MmsValue, error) {
 		return nil, UnSupportedOperation
 	}
 	return mmsValue, nil
+}
+
+func toGoValue(mmsValue *C.MmsValue, mmsType MmsType) (interface{}, error) {
+	var (
+		value interface{}
+		err   error
+	)
+
+	switch mmsType {
+	case Integer:
+		value = int64(C.MmsValue_toInt64(mmsValue))
+	case Unsigned:
+		value = uint32(C.MmsValue_toUint32(mmsValue))
+	case Boolean:
+		value = bool(C.MmsValue_getBoolean(mmsValue))
+	case Float:
+		value = float32(C.MmsValue_toFloat(mmsValue))
+	case String, VisibleString:
+		value = C.GoString(C.MmsValue_toString(mmsValue))
+	case Structure, Array:
+		if value, err = toGoStructure(mmsValue, mmsType); err != nil {
+			return nil, err
+		}
+	case BitString:
+		value = uint32(C.MmsValue_getBitStringAsInteger(mmsValue))
+	case OctetString:
+		size := uint16(C.MmsValue_getOctetStringSize(mmsValue))
+		bytes := make([]byte, size)
+		for i := 0; i < int(size); i++ {
+			bytes[i] = uint8(C.MmsValue_getOctetStringOctet(mmsValue, C.int(i)))
+		}
+		value = bytes
+	case BinaryTime:
+		value = uint64(C.MmsValue_getBinaryTimeAsUtcMs(mmsValue))
+	case UTCTime:
+		value = uint32(C.MmsValue_toUnixTimestamp(mmsValue))
+	case DataAccessError:
+		errorCode := C.MmsValue_getDataAccessError(mmsValue)
+		return nil, fmt.Errorf("failed to read value (error code: %d)", int(errorCode))
+	default:
+		return nil, fmt.Errorf("unsupported type %d", mmsType)
+	}
+	return value, nil
+}
+
+func toGoStructure(mmsValue *C.MmsValue, mmsType MmsType) ([]*MmsValue, error) {
+	if mmsType != Structure {
+		return nil, nil
+	}
+
+	mmsValues := make([]*MmsValue, 0)
+	for i := 0; ; i++ {
+		value := C.MmsValue_getElement(mmsValue, C.int(i))
+		// 读不到表示节点下没有属性了
+		if value == nil {
+			return mmsValues, nil
+		}
+
+		valueType := MmsType(C.MmsValue_getType(value))
+		goValue, err := toGoValue(value, valueType)
+		if err != nil {
+			return nil, err
+		}
+
+		mmsValues = append(mmsValues, &MmsValue{
+			Type:  valueType,
+			Value: goValue,
+		})
+	}
 }
 
 func toInt64MmsValue(value interface{}) (*C.MmsValue, error) {

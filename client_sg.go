@@ -63,12 +63,27 @@ func (c *Client) GetSG(objectRef string) (*SettingGroup, error) {
 	if err := GetIedClientError(clientError); err != nil {
 		return nil, err
 	}
-	defer C.MmsValue_delete(sgcbVal)
+	//defer C.MmsValue_delete(sgcbVal)
 
-	numOfSGValue := c.getSubElementValue(sgcbVal, sgcbVarSpec, "NumOfSG")
-	actSGValue := c.getSubElementValue(sgcbVal, sgcbVarSpec, "ActSG")
-	editSGValue := c.getSubElementValue(sgcbVal, sgcbVarSpec, "EditSG")
-	cnfEditValue := c.getSubElementValue(sgcbVal, sgcbVarSpec, "CnfEdit")
+	numOfSGValue, err := c.getSubElementValue(sgcbVal, sgcbVarSpec, "NumOfSG")
+	if err != nil {
+		return nil, err
+	}
+
+	actSGValue, err := c.getSubElementValue(sgcbVal, sgcbVarSpec, "ActSG")
+	if err != nil {
+		return nil, err
+	}
+
+	editSGValue, err := c.getSubElementValue(sgcbVal, sgcbVarSpec, "EditSG")
+	if err != nil {
+		return nil, err
+	}
+
+	cnfEditValue, err := c.getSubElementValue(sgcbVal, sgcbVarSpec, "CnfEdit")
+	if err != nil {
+		return nil, err
+	}
 
 	sg := &SettingGroup{
 		NumOfSG: cast.ToInt(numOfSGValue),
