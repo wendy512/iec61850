@@ -1,4 +1,4 @@
-module github.com/wendy512/iec61850
+module github.com/morris-kelly/wendy512iec61850
 
 go 1.19
 
