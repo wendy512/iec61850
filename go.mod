@@ -13,3 +13,5 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	gopkg.in/validator.v2 v2.0.1 // indirect
 )
+
+replace github.com/wendy512/iec61850 => ./

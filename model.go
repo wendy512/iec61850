@@ -2,6 +2,7 @@ package iec61850
 
 // #include <iec61850_server.h>
 import "C"
+
 import (
 	"os"
 	"unsafe"
@@ -9,6 +10,15 @@ import (
 
 type IedModel struct {
 	_iedModel *C.IedModel
+}
+
+// This is a little hacky but it works for calls from runtime_scl.
+//
+// The pointer must be a pointer to the C version of the IedModel.
+func NewIedModelFromPointer(model unsafe.Pointer) *IedModel {
+	return &IedModel{
+		_iedModel: (*C.IedModel)(model),
+	}
 }
 
 type ModelNode struct {
