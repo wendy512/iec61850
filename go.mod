@@ -1,4 +1,4 @@
-module github.com/morris-kelly/wendy512iec61850
+module github.com/wendy512/iec61850
 
 go 1.19
 
@@ -13,3 +13,5 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 )
+
+replace github.com/wendy512/iec61850 => ./
