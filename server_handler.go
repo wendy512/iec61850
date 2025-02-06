@@ -28,6 +28,7 @@ static Buffer AcseAuthenticationParameter_GetBuffer(AcseAuthenticationParameter 
 }
 */
 import "C"
+
 import (
 	"fmt"
 	"sync/atomic"

@@ -2,6 +2,7 @@ package iec61850
 
 // #include <iec61850_server.h>
 import "C"
+
 import (
 	"unsafe"
 )
@@ -22,7 +23,7 @@ func NewServerWithTlsSupport(serverConfig ServerConfig, tlsConfig *TLSConfig, ie
 	config := serverConfig.createIedServerConfig(serverConfig)
 	defer C.IedServerConfig_destroy(config)
 	return &IedServer{
-		server:       C.IedServer_createWithConfig(iedModel._iedModel, cTlsConfig, config),
+		server:       C.IedServer_createWithConfig(iedModel.Model, cTlsConfig, config),
 		serverConfig: serverConfig,
 		tlsConfig:    cTlsConfig,
 	}, nil
@@ -32,7 +33,7 @@ func NewServerWithConfig(serverConfig ServerConfig, iedModel *IedModel) *IedServ
 	config := serverConfig.createIedServerConfig(serverConfig)
 	defer C.IedServerConfig_destroy(config)
 	return &IedServer{
-		server:       C.IedServer_createWithConfig(iedModel._iedModel, nil, config),
+		server:       C.IedServer_createWithConfig(iedModel.Model, nil, config),
 		serverConfig: serverConfig,
 	}
 }
@@ -40,7 +41,7 @@ func NewServerWithConfig(serverConfig ServerConfig, iedModel *IedModel) *IedServ
 // NewServer creates a new instance of the IedServer using the provided _iedModel.
 func NewServer(iedModel *IedModel) *IedServer {
 	return &IedServer{
-		server: C.IedServer_create(iedModel._iedModel),
+		server: C.IedServer_create(iedModel.Model),
 	}
 }
 

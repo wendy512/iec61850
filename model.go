@@ -2,13 +2,23 @@ package iec61850
 
 // #include <iec61850_server.h>
 import "C"
+
 import (
 	"os"
 	"unsafe"
 )
 
 type IedModel struct {
-	_iedModel *C.IedModel
+	Model *C.IedModel
+}
+
+// This is a little hacky but it works for calls from runtime_scl.
+//
+// The pointer must be a pointer to the C version of the IedModel.
+func NewIedModelFromPointer(model unsafe.Pointer) *IedModel {
+	return &IedModel{
+		Model: (*C.IedModel)(model),
+	}
 }
 
 type ModelNode struct {
@@ -20,19 +30,19 @@ func NewIedModel(name string) *IedModel {
 	cname := C.CString(name)
 	defer C.free(unsafe.Pointer(cname))
 	return &IedModel{
-		_iedModel: C.IedModel_create(cname),
+		Model: C.IedModel_create(cname),
 	}
 }
 
 func (m *IedModel) Destroy() {
-	C.IedModel_destroy(m._iedModel)
+	C.IedModel_destroy(m.Model)
 }
 
 func (m *IedModel) GetModelNodeByObjectReference(objectRef string) *ModelNode {
 	cObjectRef := C.CString(objectRef)
 	defer C.free(unsafe.Pointer(cObjectRef))
 
-	do := C.IedModel_getModelNodeByObjectReference(m._iedModel, cObjectRef)
+	do := C.IedModel_getModelNodeByObjectReference(m.Model, cObjectRef)
 	if do == nil {
 		return nil
 	}
@@ -49,7 +59,7 @@ func CreateModelFromConfigFileEx(filepath string) (*IedModel, error) {
 	// 释放内存
 	defer C.free(unsafe.Pointer(cFilepath))
 	model := &IedModel{
-		_iedModel: C.ConfigFileParser_createModelFromConfigFileEx(cFilepath),
+		Model: C.ConfigFileParser_createModelFromConfigFileEx(cFilepath),
 	}
 	return model, nil
 }
@@ -62,7 +72,7 @@ func (m *IedModel) CreateLogicalDevice(name string) *LogicalDevice {
 	cname := C.CString(name)
 	defer C.free(unsafe.Pointer(cname))
 	return &LogicalDevice{
-		device: C.LogicalDevice_create(cname, m._iedModel),
+		device: C.LogicalDevice_create(cname, m.Model),
 	}
 }
 
