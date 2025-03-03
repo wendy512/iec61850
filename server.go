@@ -107,6 +107,11 @@ func (is *IedServer) UpdateVisibleStringAttributeValue(attr *DataAttribute, valu
 	C.IedServer_updateVisibleStringAttributeValue(is.server, attr.attribute, cValue)
 }
 
+// UpdateQuality updates the quality attribute with an UInt16 value
+func (is *IedServer) UpdateQuality(node *ModelNode, quality uint16) {
+	C.IedServer_updateQuality(is.server, (*C.DataAttribute)(node._modelNode), C.ushort(quality))
+}
+
 // SetServerIdentity updates the server identity of the IedServer
 func (is *IedServer) SetServerIdentity(vendor string, model string, version string) {
 	cVendor := C.CString(vendor)
