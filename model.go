@@ -49,6 +49,23 @@ func (m *IedModel) GetModelNodeByObjectReference(objectRef string) *ModelNode {
 	return &ModelNode{_modelNode: unsafe.Pointer(do), ObjectReference: objectRef}
 }
 
+func (m *ModelNode) GetLogicalNode(node string) *LogicalNode {
+	cNode := C.CString(node)
+	defer C.free(unsafe.Pointer(cNode))
+
+	logicalNode := C.LogicalDevice_getLogicalNode((*C.LogicalDevice)(m._modelNode), cNode)
+
+	return &LogicalNode{
+		node: logicalNode,
+	}
+}
+
+func (m *ModelNode) ConvertToDataObject() *DataObject {
+	return &DataObject{
+		object: (*C.DataObject)(m._modelNode),
+	}
+}
+
 func CreateModelFromConfigFileEx(filepath string) (*IedModel, error) {
 	if _, err := os.Stat(filepath); err != nil {
 		if os.IsNotExist(err) {
