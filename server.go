@@ -112,6 +112,24 @@ func (is *IedServer) UpdateQuality(node *ModelNode, quality uint16) {
 	C.IedServer_updateQuality(is.server, (*C.DataAttribute)(node._modelNode), C.ushort(quality))
 }
 
+// GetAttributeValue reads the value of the attribute in the server
+func (is *IedServer) GetAttributeValue(node *ModelNode) (*MmsValue, error) {
+	mmsValue := C.IedServer_getAttributeValue(is.server, (*C.DataAttribute)(node._modelNode))
+	mmsType := MmsType(C.MmsValue_getType(mmsValue))
+
+	value, err := toGoValue(mmsValue, mmsType)
+	if err != nil {
+		return nil, err
+	}
+	return &MmsValue{mmsType, value}, nil
+}
+
+// GetUTCTimeAttributeValue reads the value of a time attribute in the server
+func (is *IedServer) GetUTCTimeAttributeValue(node *ModelNode) int64 {
+	timestamp := C.IedServer_getUTCTimeAttributeValue(is.server, (*C.DataAttribute)(node._modelNode))
+	return int64(timestamp)
+}
+
 // SetServerIdentity updates the server identity of the IedServer
 func (is *IedServer) SetServerIdentity(vendor string, model string, version string) {
 	cVendor := C.CString(vendor)

@@ -177,7 +177,7 @@ func (is *IedServer) SetHandleWriteAccess(modelNode *ModelNode, handler WriteAcc
 
 	callbackId := callbackIdGen.Add(1)
 	// 将 int 转为 uintptr，再转为 unsafe.Pointer
-	cPtr := unsafe.Pointer(uintptr(callbackId))
+	cPtr := intToPointerBug58625(callbackId)
 	writeAccessCallbacks[callbackId] = &writeAccessCallback{
 		node:    modelNode,
 		handler: handler,
@@ -193,13 +193,19 @@ func (is *IedServer) SetControlHandler(modelNode *ModelNode, handler ControlHand
 
 	callbackId := callbackIdGen.Add(1)
 	// 将 int 转为 uintptr，再转为 unsafe.Pointer
-	cPtr := unsafe.Pointer(uintptr(callbackId))
+	cPtr := intToPointerBug58625(callbackId)
 	controlCallbacks[callbackId] = &controlCallback{
 		node:    modelNode,
 		handler: handler,
 	}
 
 	C.IedServer_setControlHandler(is.server, (*C.DataObject)(modelNode._modelNode), (*[0]byte)(C.controlHandlerBridge), cPtr)
+}
+
+// intToPointerBug58625 is a helper function to fix issue #58625 in Go | https://github.com/golang/go/issues/58625
+func intToPointerBug58625(i int32) unsafe.Pointer {
+	var intPtr = uintptr(i)
+	return *(*unsafe.Pointer)(unsafe.Pointer(&intPtr))
 }
 
 func (is *IedServer) SetAuthenticator(clientAuthenticator ClientAuthenticator) {
