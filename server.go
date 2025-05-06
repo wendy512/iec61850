@@ -130,6 +130,11 @@ func (is *IedServer) GetUTCTimeAttributeValue(node *ModelNode) int64 {
 	return int64(timestamp)
 }
 
+// GetNumberOfOpenConnections reads the amount of connections with the server
+func (is *IedServer) GetNumberOfOpenConnections() int {
+	return int(C.IedServer_getNumberOfOpenConnections(is.server))
+}
+
 // SetServerIdentity updates the server identity of the IedServer
 func (is *IedServer) SetServerIdentity(vendor string, model string, version string) {
 	cVendor := C.CString(vendor)

@@ -30,6 +30,7 @@ type OptFlds struct {
 type ClientReportControlBlock struct {
 	Ena     bool    // 使能
 	IntgPd  int     // 周期上送时间
+	Resv    bool    // Reservation for URCB
 	TrgOps  TrgOps  // 触发条件
 	OptFlds OptFlds // 报告选项
 }
@@ -45,6 +46,7 @@ func (c *Client) GetRCBValues(objectReference string) (*ClientReportControlBlock
 	return &ClientReportControlBlock{
 		Ena:     c.getRCBEnable(rcb),
 		IntgPd:  int(c.getRCBIntgPd(rcb)),
+		Resv:    c.getRCBResv(rcb),
 		TrgOps:  c.getTrgOps(rcb),
 		OptFlds: c.getOptFlds(rcb),
 	}, nil
@@ -58,6 +60,11 @@ func (c *Client) getRCBEnable(rcb C.ClientReportControlBlock) bool {
 func (c *Client) getRCBIntgPd(rcb C.ClientReportControlBlock) uint32 {
 	intgPd := C.ClientReportControlBlock_getIntgPd(rcb)
 	return uint32(intgPd)
+}
+
+func (c *Client) getRCBResv(rcb C.ClientReportControlBlock) bool {
+	resv := C.ClientReportControlBlock_getResv(rcb)
+	return bool(resv)
 }
 
 func (c *Client) getOptFlds(rcb C.ClientReportControlBlock) OptFlds {
@@ -140,11 +147,18 @@ func (c *Client) SetRCBValues(objectReference string, settings ClientReportContr
 		optFlds = optFlds | C.RPT_OPT_CONF_REV
 	}
 
-	C.ClientReportControlBlock_setTrgOps(rcb, trgOps)                      // 触发条件
-	C.ClientReportControlBlock_setRptEna(rcb, C.bool(settings.Ena))        // 报告使能
+	C.ClientReportControlBlock_setTrgOps(rcb, trgOps)               // 触发条件
+	C.ClientReportControlBlock_setRptEna(rcb, C.bool(settings.Ena)) // 报告使能
+	C.ClientReportControlBlock_setResv(rcb, C.bool(settings.Resv))
 	C.ClientReportControlBlock_setIntgPd(rcb, C.uint32_t(settings.IntgPd)) // 周期上送时间
 	C.ClientReportControlBlock_setOptFlds(rcb, optFlds)
-	C.IedConnection_setRCBValues(c.conn, &clientError, rcb, C.RCB_ELEMENT_RPT_ENA|C.RCB_ELEMENT_TRG_OPS|C.RCB_ELEMENT_INTG_PD, true)
+
+	if bool(C.ClientReportControlBlock_isBuffered(rcb)) {
+		C.IedConnection_setRCBValues(c.conn, &clientError, rcb, C.RCB_ELEMENT_RPT_ENA|C.RCB_ELEMENT_TRG_OPS|C.RCB_ELEMENT_INTG_PD, true)
+	} else {
+		C.IedConnection_setRCBValues(c.conn, &clientError, rcb, C.RCB_ELEMENT_RESV|C.RCB_ELEMENT_RPT_ENA|C.RCB_ELEMENT_TRG_OPS|C.RCB_ELEMENT_INTG_PD, true)
+	}
+
 	if err := GetIedClientError(clientError); err != nil {
 		return err
 	}
