@@ -3,7 +3,6 @@ package iec61850
 // #include <iec61850_client.h>
 import "C"
 import (
-	"errors"
 	"sync/atomic"
 	"unsafe"
 )
@@ -20,10 +19,6 @@ type Settings struct {
 	Port           int
 	ConnectTimeout uint // 连接超时配置，单位：毫秒
 	RequestTimeout uint // 请求超时配置，单位：毫秒
-}
-
-type ClientDataSet struct {
-	DataSet *C.ClientDataSet
 }
 
 func NewSettings() Settings {
@@ -59,20 +54,6 @@ func newClient(settings Settings, tlsConfig *TLSConfig) (*Client, error) {
 	connected.Store(true)
 	client.connected = connected
 	return client, nil
-}
-
-// Connect to server from already set connection
-func (c *Client) Connect(host string, port int) error {
-	if c.conn == nil {
-		return errors.New("empty connection")
-	}
-
-	var clientError C.IedClientError
-	cHost := C.CString(host)
-
-	C.IedConnection_connect(c.conn, &clientError, cHost, C.int(port))
-
-	return GetIedClientError(clientError)
 }
 
 // Write 写单个属性值，不支持Structure
@@ -234,13 +215,6 @@ func (c *Client) Close() {
 		if c.tlsConfig != nil {
 			C.TLSConfiguration_destroy(c.tlsConfig)
 		}
-	}
-}
-
-// Disconnect is for closing connection without destroying the connection
-func (c *Client) Disconnect() {
-	if c.conn != nil && c.connected.CompareAndSwap(true, false) {
-		C.IedConnection_close(c.conn)
 	}
 }
 
