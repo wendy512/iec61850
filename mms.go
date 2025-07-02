@@ -114,8 +114,8 @@ func toGoValue(mmsValue *C.MmsValue, mmsType MmsType) (interface{}, error) {
 }
 
 func toGoStructure(mmsValue *C.MmsValue, mmsType MmsType) ([]*MmsValue, error) {
-	if mmsType != Structure {
-		return nil, nil
+	if !(mmsType == Structure || mmsType == Array) {
+		return nil, fmt.Errorf("require struct or array type value, but got type code is: %d", mmsType)
 	}
 
 	mmsValues := make([]*MmsValue, 0)
