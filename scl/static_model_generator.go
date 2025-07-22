@@ -948,13 +948,14 @@ func (s *StaticModelGenerator) printDataObjectDefinitions(lnName string, dataObj
 			s.printDataObjectDefinitions(doName, dataObject.SubDataObjects, firstDataAttributeName, isDoTransient)
 		}
 		if len(dataObject.DataAttributes) > 0 {
-			s.printDataAttributeDefinitions(doName, dataObject.DataAttributes, isDoTransient)
+			s.printDataAttributeDefinitions(doName, dataObject.DataAttributes, isDoTransient, -1)
 		}
 	}
 }
 
-func (s *StaticModelGenerator) printDataAttributeDefinitions(doName string, dataAttributes []*DataAttribute, isTransient bool) {
+func (s *StaticModelGenerator) printDataAttributeDefinitions(doName string, dataAttributes []*DataAttribute, isTransient bool, arrayIdx int) {
 	for i, dataAttribute := range dataAttributes {
+		isArray := dataAttribute.Count > 0
 		daName := doName + "_" + dataAttribute.Name
 
 		// Handle FunctionalConstraint "SE"
@@ -972,7 +973,7 @@ func (s *StaticModelGenerator) printDataAttributeDefinitions(doName string, data
 		s.cOut.println("    \"%s\",", dataAttribute.Name)
 		s.cOut.println("    (ModelNode*) &%s,", doName)
 
-		// Sibling node
+		// Print pointer to sibling node
 		if i < len(dataAttributes)-1 {
 			sibling := dataAttributes[i+1]
 			siblingDoName := doName
@@ -986,15 +987,23 @@ func (s *StaticModelGenerator) printDataAttributeDefinitions(doName string, data
 			s.cOut.println("    NULL,")
 		}
 
-		// First sub-data attribute
-		if len(dataAttribute.SubDataAttributes) > 0 {
-			s.cOut.println("    (ModelNode*) &%s_%s,", daName, dataAttribute.SubDataAttributes[0].Name)
+		if isArray {
+			// For arrays, the first child is array element 0
+			s.cOut.println("    (ModelNode*) &%s_0,", daName)
+			s.cOut.println("    %d,", dataAttribute.Count)
+			s.cOut.println("    -1,") // arrayIdx
 		} else {
-			s.cOut.println("    NULL,")
+			// For non-arrays, print pointer to the first sub-data attribute if exists
+			if len(dataAttribute.SubDataAttributes) > 0 {
+				s.cOut.println("    (ModelNode*) &%s_%s,", daName, dataAttribute.SubDataAttributes[0].Name)
+			} else {
+				s.cOut.println("    NULL,")
+			}
+			s.cOut.println("    %d,", dataAttribute.Count)
+			s.cOut.println("    -1,") // arrayIdx
 		}
 
-		// Print Count, FunctionalConstraint, and Type
-		s.cOut.println("    %d,", dataAttribute.Count)
+		// Print FunctionalConstraint and Type
 		s.cOut.println("    IEC61850_FC_%s,", dataAttribute.FC)
 		s.cOut.println("    IEC61850_%s,", dataAttribute.AttributeType.ToString())
 
@@ -1019,7 +1028,7 @@ func (s *StaticModelGenerator) printDataAttributeDefinitions(doName string, data
 
 		s.cOut.println("    NULL,")
 
-		// Short address
+		// Print short address if valid
 		shortAddr := int64(0)
 		if addr, err := cast.ToInt64E(dataAttribute.ShortAddress); err == nil {
 			shortAddr = addr
@@ -1029,12 +1038,74 @@ func (s *StaticModelGenerator) printDataAttributeDefinitions(doName string, data
 		s.cOut.println("    %d", shortAddr)
 		s.cOut.println("};\n")
 
-		// Recursive call for sub-data attributes
-		if len(dataAttribute.SubDataAttributes) > 0 {
-			s.printDataAttributeDefinitions(daName, dataAttribute.SubDataAttributes, isTransient)
+		// If array, print each array element definition
+		if isArray {
+			for idx := 0; idx < dataAttribute.Count; idx++ {
+				arrayElementdaName := fmt.Sprintf("%s_%d", daName, idx)
+				s.variablesList = append(s.variablesList, arrayElementdaName)
+
+				s.cOut.println("DataAttribute %s = {", arrayElementdaName)
+				s.cOut.println("    DataAttributeModelType,")
+				s.cOut.println("    NULL,")
+				s.cOut.println("    (ModelNode*) &%s,", daName)
+
+				// Print pointer to next array element or NULL if last
+				if idx != dataAttribute.Count-1 {
+					nextArrayElementdaName := fmt.Sprintf("%s_%d", daName, idx+1)
+					s.cOut.println("    (ModelNode*) &%s,", nextArrayElementdaName)
+				} else {
+					s.cOut.println("    NULL,")
+				}
+
+				// Print pointer to first sub-data attribute if exists
+				if len(dataAttribute.SubDataAttributes) > 0 {
+					s.cOut.println("    (ModelNode*) &%s_%s,", arrayElementdaName, dataAttribute.SubDataAttributes[0].Name)
+				} else {
+					s.cOut.println("    NULL,")
+				}
+
+				s.cOut.println("    0,")       // count for array element
+				s.cOut.println("    %d,", idx) // index of array element
+
+				s.cOut.println("    IEC61850_FC_%s,", dataAttribute.FC)
+				s.cOut.println("    IEC61850_%s,", dataAttribute.AttributeType.ToString())
+
+				// Print trigger options for array element
+				s.cOut.print("    0")
+				if trgOps != nil {
+					if trgOps.Dchg {
+						s.cOut.print(" + TRG_OPT_DATA_CHANGED")
+					}
+					if trgOps.Dupd {
+						s.cOut.print(" + TRG_OPT_DATA_UPDATE")
+					}
+					if trgOps.Qchg {
+						s.cOut.print(" + TRG_OPT_QUALITY_CHANGED")
+					}
+				}
+				if isTransient {
+					s.cOut.print(" + TRG_OPT_TRANSIENT")
+				}
+				s.cOut.println(",")
+
+				s.cOut.println("    NULL,")
+				// sAddr is always zero for array element
+				s.cOut.print("    0")
+				s.cOut.println("};\n")
+
+				// Recursively print sub-data attributes for each array element
+				if len(dataAttribute.SubDataAttributes) > 0 {
+					s.printDataAttributeDefinitions(arrayElementdaName, dataAttribute.SubDataAttributes, isTransient, -1)
+				}
+			}
+		} else {
+			// Recursively print sub-data attributes for non-array attribute
+			if len(dataAttribute.SubDataAttributes) > 0 {
+				s.printDataAttributeDefinitions(daName, dataAttribute.SubDataAttributes, isTransient, -1)
+			}
 		}
 
-		// Process value
+		// Process value if present or fetch default value from definition
 		value := dataAttribute.Value
 		if value == nil && dataAttribute.Definition != nil {
 			value = dataAttribute.Definition.Value
