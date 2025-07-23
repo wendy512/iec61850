@@ -4,8 +4,9 @@ package iec61850
 import "C"
 import (
 	"fmt"
-	"github.com/spf13/cast"
 	"unsafe"
+
+	"github.com/spf13/cast"
 )
 
 func toMmsValue(mmsType MmsType, value interface{}) (*C.MmsValue, error) {
@@ -114,8 +115,8 @@ func toGoValue(mmsValue *C.MmsValue, mmsType MmsType) (interface{}, error) {
 }
 
 func toGoStructure(mmsValue *C.MmsValue, mmsType MmsType) ([]*MmsValue, error) {
-	if mmsType != Structure {
-		return nil, nil
+	if !(mmsType == Structure || mmsType == Array) {
+		return nil, fmt.Errorf("require struct or array type value, but got type code is: %d", mmsType)
 	}
 
 	mmsValues := make([]*MmsValue, 0)
