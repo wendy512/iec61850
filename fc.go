@@ -33,10 +33,18 @@ const (
 	EX
 	// CO Control, deprecated but kept here for backward compatibility
 	CO
+	// US Unicast SV
+	US
+	// MS Multicast SV
+	MS
 	// RP Unbuffered Reporting
 	RP
 	// BR Buffered Reporting
 	BR
+	// LG Log control blocks
+	LG
+	// GO Goose control blocks
+	GO
 	// ALL All FCs - wildcard value
 	ALL  FC = 99
 	NONE FC = -1
