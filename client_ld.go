@@ -23,101 +23,95 @@ func (c *Client) GetLogicalDeviceList() DataModel {
 		logicalNode := logicalNodes.next
 
 		for logicalNode != nil {
-			var ln LN
-			ln.Data = C2GoStr((*C.char)(logicalNode.data))
+			func() {
+				var ln LN
+				ln.Data = C2GoStr((*C.char)(logicalNode.data))
+				lnRef := fmt.Sprintf("%s/%s", ld.Data, C2GoStr((*C.char)(logicalNode.data)))
+				cRef := Go2CStr(lnRef)
+				defer C.free(unsafe.Pointer(cRef))
+				dataObjects := C.IedConnection_getLogicalNodeDirectory(c.conn, &clientError, cRef, C.ACSI_CLASS_DATA_OBJECT)
+				dataObject := dataObjects.next
+				for dataObject != nil {
+					var do DO
+					do.Data = C2GoStr((*C.char)(dataObject.data))
 
-			lnRef := fmt.Sprintf("%s/%s", ld.Data, C2GoStr((*C.char)(logicalNode.data)))
+					dataObject = dataObject.next
+					doRef := fmt.Sprintf("%s/%s.%s", C2GoStr((*C.char)(device.data)), C2GoStr((*C.char)(logicalNode.data)), do.Data)
 
-			cRef := Go2CStr(lnRef)
-			defer C.free(unsafe.Pointer(cRef))
-			dataObjects := C.IedConnection_getLogicalNodeDirectory(c.conn, &clientError, cRef, C.ACSI_CLASS_DATA_OBJECT)
-			dataObject := dataObjects.next
-			for dataObject != nil {
-				var do DO
-				do.Data = C2GoStr((*C.char)(dataObject.data))
+					var das []DA
+					c.GetDAs(doRef, das)
 
-				dataObject = dataObject.next
-				doRef := fmt.Sprintf("%s/%s.%s", C2GoStr((*C.char)(device.data)), C2GoStr((*C.char)(logicalNode.data)), do.Data)
+					do.DAs = das
+					ln.DOs = append(ln.DOs, do)
+				}
+				C.LinkedList_destroy(dataObjects)
+				clnRef := Go2CStr(lnRef)
+				defer C.free(unsafe.Pointer(clnRef))
+				dataSets := C.IedConnection_getLogicalNodeDirectory(c.conn, &clientError, clnRef, C.ACSI_CLASS_DATA_SET)
+				dataSet := dataSets.next
+				for dataSet != nil {
+					func() {
+						var ds DS
+						ds.Data = C2GoStr((*C.char)(dataSet.data))
+						var isDeletable C.bool
+						dataSetRef := fmt.Sprintf("%s.%s", lnRef, ds.Data)
+						cdataSetRef := Go2CStr(dataSetRef)
+						defer C.free(unsafe.Pointer(cdataSetRef))
 
-				var das []DA
-				c.GetDAs(doRef, das)
+						dataSetMembers := C.IedConnection_getDataSetDirectory(c.conn, &clientError, cdataSetRef, &isDeletable)
+						if isDeletable {
+							fmt.Printf("    Data set: %s (deletable)\n", ds.Data)
+						} else {
+							fmt.Printf("    Data set: %s (not deletable)\n", ds.Data)
+						}
+						dataSetMemberRef := dataSetMembers.next
+						for dataSetMemberRef != nil {
+							var dsRef DSRef
+							dsRef.Data = C2GoStr((*C.char)(dataSetMemberRef.data))
+							ds.DSRefs = append(ds.DSRefs, dsRef)
 
-				do.DAs = das
-				ln.DOs = append(ln.DOs, do)
-			}
+							dataSetMemberRef = dataSetMemberRef.next
+						}
+						C.LinkedList_destroy(dataSetMembers)
+						dataSet = dataSet.next
+						ln.DSs = append(ln.DSs, ds)
+					}()
+				}
+				C.LinkedList_destroy(dataSets)
 
-			C.LinkedList_destroy(dataObjects)
+				clnRef1 := Go2CStr(lnRef)
+				defer C.free(unsafe.Pointer(clnRef1))
 
-			clnRef := Go2CStr(lnRef)
-			defer C.free(unsafe.Pointer(clnRef))
+				reports := C.IedConnection_getLogicalNodeDirectory(c.conn, &clientError, clnRef1, C.ACSI_CLASS_URCB)
+				report := reports.next
+				for report != nil {
+					var r URReport
+					r.Data = C2GoStr((*C.char)(report.data))
+					ln.URReports = append(ln.URReports, r)
 
-			dataSets := C.IedConnection_getLogicalNodeDirectory(c.conn, &clientError, clnRef, C.ACSI_CLASS_DATA_SET)
-			dataSet := dataSets.next
-			for dataSet != nil {
-				var ds DS
-				ds.Data = C2GoStr((*C.char)(dataSet.data))
+					report = report.next
+				}
+				C.LinkedList_destroy(reports)
 
-				var isDeletable C.bool
-				dataSetRef := fmt.Sprintf("%s.%s", lnRef, ds.Data)
+				clnRef2 := Go2CStr(lnRef)
+				defer C.free(unsafe.Pointer(clnRef2))
 
-				cdataSetRef := Go2CStr(dataSetRef)
-				defer C.free(unsafe.Pointer(cdataSetRef))
+				reports = C.IedConnection_getLogicalNodeDirectory(c.conn, &clientError, clnRef2, C.ACSI_CLASS_BRCB)
+				report = reports.next
+				for report != nil {
+					var r BRReport
+					r.Data = C2GoStr((*C.char)(report.data))
+					ln.BRReports = append(ln.BRReports, r)
 
-				dataSetMembers := C.IedConnection_getDataSetDirectory(c.conn, &clientError, cdataSetRef, &isDeletable)
-
-				if isDeletable {
-					fmt.Println(fmt.Sprintf("    Data set: %s (deletable)", ds.Data))
-				} else {
-					fmt.Println(fmt.Sprintf("    Data set: %s (not deletable)", ds.Data))
+					report = report.next
 				}
 
-				dataSetMemberRef := dataSetMembers.next
-				for dataSetMemberRef != nil {
-					var dsRef DSRef
-					dsRef.Data = C2GoStr((*C.char)(dataSetMemberRef.data))
-					ds.DSRefs = append(ds.DSRefs, dsRef)
+				C.LinkedList_destroy(reports)
 
-					dataSetMemberRef = dataSetMemberRef.next
-				}
-				C.LinkedList_destroy(dataSetMembers)
-				dataSet = dataSet.next
-				ln.DSs = append(ln.DSs, ds)
-			}
+				ld.LNs = append(ld.LNs, ln)
 
-			C.LinkedList_destroy(dataSets)
-
-			clnRef1 := Go2CStr(lnRef)
-			defer C.free(unsafe.Pointer(clnRef1))
-
-			reports := C.IedConnection_getLogicalNodeDirectory(c.conn, &clientError, clnRef1, C.ACSI_CLASS_URCB)
-			report := reports.next
-			for report != nil {
-				var r URReport
-				r.Data = C2GoStr((*C.char)(report.data))
-				ln.URReports = append(ln.URReports, r)
-
-				report = report.next
-			}
-			C.LinkedList_destroy(reports)
-
-			clnRef2 := Go2CStr(lnRef)
-			defer C.free(unsafe.Pointer(clnRef2))
-
-			reports = C.IedConnection_getLogicalNodeDirectory(c.conn, &clientError, clnRef2, C.ACSI_CLASS_BRCB)
-			report = reports.next
-			for report != nil {
-				var r BRReport
-				r.Data = C2GoStr((*C.char)(report.data))
-				ln.BRReports = append(ln.BRReports, r)
-
-				report = report.next
-			}
-
-			C.LinkedList_destroy(reports)
-
-			ld.LNs = append(ld.LNs, ln)
-
-			logicalNode = logicalNode.next
+				logicalNode = logicalNode.next
+			}()
 		}
 		C.LinkedList_destroy(logicalNodes)
 
