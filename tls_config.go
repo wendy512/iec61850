@@ -11,11 +11,11 @@ type TLSConfigVersion int
 
 const (
 	TLS_VERSION_NOT_SELECTED TLSConfigVersion = 0
-	TLS_VERSION_SSL_3_0                       = 3
-	TLS_VERSION_TLS_1_0                       = 4
-	TLS_VERSION_TLS_1_1                       = 5
-	TLS_VERSION_TLS_1_2                       = 6
-	TLS_VERSION_TLS_1_3                       = 7
+	TLS_VERSION_SSL_3_0      TLSConfigVersion = 3
+	TLS_VERSION_TLS_1_0      TLSConfigVersion = 4
+	TLS_VERSION_TLS_1_1      TLSConfigVersion = 5
+	TLS_VERSION_TLS_1_2      TLSConfigVersion = 6
+	TLS_VERSION_TLS_1_3      TLSConfigVersion = 7
 )
 
 type TLSConfigurationEventHandler func(parameter unsafe.Pointer, eventLevel, eventCode int, message string, conn C.TLSConnection)

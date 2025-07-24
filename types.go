@@ -38,21 +38,21 @@ type MmsDataAccessError int
 
 const (
 	DATA_ACCESS_ERROR_SUCCESS_NO_UPDATE             MmsDataAccessError = -3
-	DATA_ACCESS_ERROR_NO_RESPONSE                                      = -2
-	DATA_ACCESS_ERROR_SUCCESS                                          = -1
-	DATA_ACCESS_ERROR_OBJECT_INVALIDATED                               = 0
-	DATA_ACCESS_ERROR_HARDWARE_FAULT                                   = 1
-	DATA_ACCESS_ERROR_TEMPORARILY_UNAVAILABLE                          = 2
-	DATA_ACCESS_ERROR_OBJECT_ACCESS_DENIED                             = 3
-	DATA_ACCESS_ERROR_OBJECT_UNDEFINED                                 = 4
-	DATA_ACCESS_ERROR_INVALID_ADDRESS                                  = 5
-	DATA_ACCESS_ERROR_TYPE_UNSUPPORTED                                 = 6
-	DATA_ACCESS_ERROR_TYPE_INCONSISTENT                                = 7
-	DATA_ACCESS_ERROR_OBJECT_ATTRIBUTE_INCONSISTENT                    = 8
-	DATA_ACCESS_ERROR_OBJECT_ACCESS_UNSUPPORTED                        = 9
-	DATA_ACCESS_ERROR_OBJECT_NONE_EXISTENT                             = 10
-	DATA_ACCESS_ERROR_OBJECT_VALUE_INVALID                             = 11
-	DATA_ACCESS_ERROR_UNKNOWN                                          = 12
+	DATA_ACCESS_ERROR_NO_RESPONSE                   MmsDataAccessError = -2
+	DATA_ACCESS_ERROR_SUCCESS                       MmsDataAccessError = -1
+	DATA_ACCESS_ERROR_OBJECT_INVALIDATED            MmsDataAccessError = 0
+	DATA_ACCESS_ERROR_HARDWARE_FAULT                MmsDataAccessError = 1
+	DATA_ACCESS_ERROR_TEMPORARILY_UNAVAILABLE       MmsDataAccessError = 2
+	DATA_ACCESS_ERROR_OBJECT_ACCESS_DENIED          MmsDataAccessError = 3
+	DATA_ACCESS_ERROR_OBJECT_UNDEFINED              MmsDataAccessError = 4
+	DATA_ACCESS_ERROR_INVALID_ADDRESS               MmsDataAccessError = 5
+	DATA_ACCESS_ERROR_TYPE_UNSUPPORTED              MmsDataAccessError = 6
+	DATA_ACCESS_ERROR_TYPE_INCONSISTENT             MmsDataAccessError = 7
+	DATA_ACCESS_ERROR_OBJECT_ATTRIBUTE_INCONSISTENT MmsDataAccessError = 8
+	DATA_ACCESS_ERROR_OBJECT_ACCESS_UNSUPPORTED     MmsDataAccessError = 9
+	DATA_ACCESS_ERROR_OBJECT_NONE_EXISTENT          MmsDataAccessError = 10
+	DATA_ACCESS_ERROR_OBJECT_VALUE_INVALID          MmsDataAccessError = 11
+	DATA_ACCESS_ERROR_UNKNOWN                       MmsDataAccessError = 12
 )
 
 type ControlHandlerResult int
