@@ -6,7 +6,7 @@ package iec61850
 #include <stdint.h>
 
 // 创建 goose 订阅对象
-static GooseSubscriber create_simple_goose_subscriber(const char *goCbRef) {
+static GooseSubscriber create_simple_goose_subscriber(char *goCbRef) {
 	return GooseSubscriber_create(goCbRef, NULL);
 }
 */
