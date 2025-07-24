@@ -15,13 +15,13 @@ var reportCallbacks = make(map[int32]*reportCallbackHandler)
 type ReasonForInclusion int
 
 const (
-	IEC61850_REASON_NOT_INCLUDED ReasonForInclusion = iota
-	IEC61850_REASON_DATA_CHANGE
-	IEC61850_REASON_QUALITY_CHANGE
-	IEC61850_REASON_DATA_UPDATE
-	IEC61850_REASON_INTEGRITY
-	IEC61850_REASON_GI
-	IEC61850_REASON_UNKNOWN
+	IEC61850_REASON_NOT_INCLUDED   ReasonForInclusion = 0
+	IEC61850_REASON_DATA_CHANGE    ReasonForInclusion = 1
+	IEC61850_REASON_QUALITY_CHANGE ReasonForInclusion = 2
+	IEC61850_REASON_DATA_UPDATE    ReasonForInclusion = 4
+	IEC61850_REASON_INTEGRITY      ReasonForInclusion = 8
+	IEC61850_REASON_GI             ReasonForInclusion = 16
+	IEC61850_REASON_UNKNOWN        ReasonForInclusion = 32
 )
 
 type reportCallbackHandler struct {
