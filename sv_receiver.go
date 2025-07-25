@@ -1,3 +1,5 @@
+//go:build linux && amd64
+
 package iec61850
 
 /*
