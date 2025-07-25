@@ -1,3 +1,5 @@
+//go:build linux && amd64
+
 package iec61850
 
 /*
@@ -26,6 +28,7 @@ type (
 	GooseReceiver struct {
 		noCopy        struct{}
 		gooseReceiver *C.struct_sGooseReceiver
+		refs          map[GooseCallbackHandlerID]struct{}
 	}
 )
 
@@ -69,6 +72,7 @@ func cgoReportCallbackBridgeDispatcher(_ *C.struct_sGooseSubscriber, parameter u
 func NewGooseReceiver() *GooseReceiver {
 	return &GooseReceiver{
 		gooseReceiver: C.GooseReceiver_create(),
+		refs:          make(map[GooseCallbackHandlerID]struct{}),
 	}
 }
 
@@ -83,7 +87,7 @@ func (receiver *GooseReceiver) AddSubscriber(subscriber *GooseSubscriber) *Goose
 		handler:    subscriber.Conf.ReportHandler,
 		subscriber: subscriber,
 	}
-
+	receiver.refs[subscriber.HandlerID] = struct{}{}
 	C.simple_goose_subscriber_set_listener(
 		subscriber.subscriber,
 		C.uintptr_t(subscriber.HandlerID),
@@ -99,6 +103,7 @@ func (receiver *GooseReceiver) RemoveSubscriber(subscriber *GooseSubscriber) *Go
 
 	C.GooseReceiver_removeSubscriber(receiver.gooseReceiver, subscriber.subscriber)
 	delete(gooseCallbackLocker.callbackRefs, subscriber.HandlerID)
+	delete(receiver.refs, subscriber.HandlerID)
 
 	return receiver
 }
@@ -136,5 +141,12 @@ func (receiver *GooseReceiver) Stop() *GooseReceiver {
 }
 
 func (receiver *GooseReceiver) Destroy() {
+	gooseCallbackLocker.Lock()
+	defer gooseCallbackLocker.Unlock()
+	for id := range receiver.refs {
+		delete(gooseCallbackLocker.callbackRefs, id)
+	}
 	C.GooseReceiver_destroy(receiver.gooseReceiver)
+	receiver.refs = nil
+	receiver.gooseReceiver = nil
 }

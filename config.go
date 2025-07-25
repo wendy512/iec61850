@@ -13,6 +13,7 @@ import (
 	_ "github.com/wendy512/iec61850/libiec61850/inc/mms/inc"
 	_ "github.com/wendy512/iec61850/libiec61850/inc/mms/inc_private"
 	_ "github.com/wendy512/iec61850/libiec61850/inc/mms/iso_mms/asn1c"
+	_ "github.com/wendy512/iec61850/libiec61850/inc/sampled_values"
 
 	_ "github.com/wendy512/iec61850/libiec61850/lib/linux64"
 	_ "github.com/wendy512/iec61850/libiec61850/lib/linux_armv7l"
