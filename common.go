@@ -119,4 +119,8 @@ func (receiver *Timestamp) GetSubSecondPrecision() int {
 func (receiver *Timestamp) SetTime(time time.Time) *Timestamp {
 	C.Timestamp_setTimeInNanoseconds(&receiver.cTimestamp, C.nsSinceEpoch(time.UnixNano()))
 	return receiver
+// GetVersionString retrieves the version string of the underlying libIEC61850 library.
+func GetVersionString() string {
+	value := C.LibIEC61850_getVersionString()
+	return C.GoString(value)
 }
