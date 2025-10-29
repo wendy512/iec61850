@@ -1,8 +1,8 @@
 package client_rcb
 
 import (
-	"github.com/wendy512/iec61850"
-	"github.com/wendy512/iec61850/test"
+	"github.com/marrasen/iec61850"
+	"github.com/marrasen/iec61850/test"
 	"log"
 	"testing"
 )

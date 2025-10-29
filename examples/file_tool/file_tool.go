@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/wendy512/iec61850"
+	"github.com/marrasen/iec61850"
 	"os"
 	"strings"
 )
