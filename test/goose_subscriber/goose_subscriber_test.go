@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/wendy512/iec61850"
+	"github.com/boeboe/iec61850"
 )
 
 func printReportValue(report *iec61850.GooseReport) {

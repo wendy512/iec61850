@@ -1,4 +1,4 @@
-module github.com/wendy512/iec61850
+module github.com/boeboe/iec61850
 
 go 1.19
 

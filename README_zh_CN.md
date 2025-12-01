@@ -1,9 +1,9 @@
 # iec61850
 
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](https://www.gnu.org/licenses/gpl-3.0.html)
-[![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/wendy512/iec61850)](https://pkg.go.dev/mod/github.com/wendy512/iec61850)
+[![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/boeboe/iec61850)](https://pkg.go.dev/mod/github.com/boeboe/iec61850)
 ![Go Version](https://img.shields.io/badge/go%20version-%3E=1.0-61CFDD.svg?style=flat-square)
-[![Go Report Card](https://goreportcard.com/badge/github.com/wendy512/iec61850?style=flat-square)](https://goreportcard.com/report/github.com/wendy512/iec61850)
+[![Go Report Card](https://goreportcard.com/badge/github.com/boeboe/iec61850?style=flat-square)](https://goreportcard.com/report/github.com/boeboe/iec61850)
 
 
 中文 | [English](README.md)
@@ -36,7 +36,7 @@ iec61850 是实现 MMS、GOOSE 和 SV 协议的 IEC 61850 客户端和服务器�
 ## 如何使用
 
 ```shell
-go get -u github.com/wendy512/iec61850
+go get -u github.com/boeboe/iec61850
 ```
 
 - [客户端控制](test/client_control/client_control_test.go)

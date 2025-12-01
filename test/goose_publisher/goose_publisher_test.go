@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wendy512/iec61850"
+	"github.com/boeboe/iec61850"
 )
 
 func TestGoosePublisher(t *testing.T) {

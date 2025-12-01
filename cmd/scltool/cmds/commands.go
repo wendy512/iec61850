@@ -3,7 +3,7 @@ package cmds
 import (
 	"fmt"
 	"github.com/spf13/cobra"
-	"github.com/wendy512/iec61850/scl"
+	"github.com/boeboe/iec61850/scl"
 	"os"
 )
 

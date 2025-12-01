@@ -1,8 +1,8 @@
 package client_rw
 
 import (
-	"github.com/wendy512/iec61850"
-	"github.com/wendy512/iec61850/test"
+	"github.com/boeboe/iec61850"
+	"github.com/boeboe/iec61850/test"
 	"testing"
 )
 
