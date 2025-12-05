@@ -38,6 +38,7 @@ var (
 	ControlSelectFail                 = errors.New("select control fail")
 	UnSupportedOperation              = errors.New("unsupported operation")
 	ReadDataAccessError               = errors.New("data access error")
+	NullPointer                       = errors.New("null pointer returned from C function")
 )
 
 func GetIedClientError(err C.IedClientError) error {

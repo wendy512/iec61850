@@ -1,6 +1,7 @@
 package iec61850
 
 // #include <iec61850_client.h>
+// #include <mms_value.h>
 import "C"
 import (
 	"sync/atomic"
@@ -11,6 +12,23 @@ type Client struct {
 	conn      C.IedConnection
 	tlsConfig C.TLSConfiguration
 	connected *atomic.Bool
+}
+
+// IedConnectionState represents the connection state
+type IedConnectionState int
+
+const (
+	IedStateClosed     IedConnectionState = 0
+	IedStateConnecting IedConnectionState = 1
+	IedStateConnected  IedConnectionState = 2
+	IedStateClosing    IedConnectionState = 3
+)
+
+// LastApplError contains control application error information
+type LastApplError struct {
+	CtlNum   int
+	Error    int
+	AddCause int
 }
 
 // Settings 连接配置
@@ -131,6 +149,42 @@ func (c *Client) ReadUint32(objectRef string, fc FC) (uint32, error) {
 	return uint32(value), nil
 }
 
+// ReadInt8 reads an int8 value
+func (c *Client) ReadInt8(objectRef string, fc FC) (int8, error) {
+	value, err := c.ReadInt32(objectRef, fc)
+	if err != nil {
+		return 0, err
+	}
+	return int8(value), nil
+}
+
+// ReadInt16 reads an int16 value
+func (c *Client) ReadInt16(objectRef string, fc FC) (int16, error) {
+	value, err := c.ReadInt32(objectRef, fc)
+	if err != nil {
+		return 0, err
+	}
+	return int16(value), nil
+}
+
+// ReadUint8 reads a uint8 value
+func (c *Client) ReadUint8(objectRef string, fc FC) (uint8, error) {
+	value, err := c.ReadUint32(objectRef, fc)
+	if err != nil {
+		return 0, err
+	}
+	return uint8(value), nil
+}
+
+// ReadUint16 reads a uint16 value
+func (c *Client) ReadUint16(objectRef string, fc FC) (uint16, error) {
+	value, err := c.ReadUint32(objectRef, fc)
+	if err != nil {
+		return 0, err
+	}
+	return uint16(value), nil
+}
+
 // ReadFloat 读取float类型值
 func (c *Client) ReadFloat(objectRef string, fc FC) (float32, error) {
 	cObjectRef := C.CString(objectRef)
@@ -156,6 +210,107 @@ func (c *Client) ReadString(objectRef string, fc FC) (string, error) {
 		return "", err
 	}
 	return C.GoString(value), nil
+}
+
+// ReadTimestampValue reads a timestamp value with quality information
+func (c *Client) ReadTimestampValue(objectRef string, fc FC) (*Timestamp, error) {
+	cObjectRef := C.CString(objectRef)
+	defer C.free(unsafe.Pointer(cObjectRef))
+
+	var clientError C.IedClientError
+	var cTimestamp C.Timestamp
+
+	result := C.IedConnection_readTimestampValue(c.conn, &clientError, cObjectRef,
+		C.FunctionalConstraint(fc), &cTimestamp)
+
+	if err := GetIedClientError(clientError); err != nil {
+		return nil, err
+	}
+
+	if result == nil {
+		return nil, NullPointer
+	}
+
+	return &Timestamp{cTimestamp: *result}, nil
+}
+
+// ReadQualityValue reads quality flags
+func (c *Client) ReadQualityValue(objectRef string, fc FC) (Quality, error) {
+	cObjectRef := C.CString(objectRef)
+	defer C.free(unsafe.Pointer(cObjectRef))
+
+	var clientError C.IedClientError
+	value := C.IedConnection_readQualityValue(c.conn, &clientError, cObjectRef,
+		C.FunctionalConstraint(fc))
+
+	if err := GetIedClientError(clientError); err != nil {
+		return 0, err
+	}
+
+	return Quality(value), nil
+}
+
+// ReadVisibleString reads a visible string value (same as ReadString)
+func (c *Client) ReadVisibleString(objectRef string, fc FC) (string, error) {
+	// VisibleString uses the same read function as String in IEC 61850
+	return c.ReadString(objectRef, fc)
+}
+
+// ReadOctetString reads an octet string (binary data) value
+func (c *Client) ReadOctetString(objectRef string, fc FC) ([]byte, error) {
+	cObjectRef := C.CString(objectRef)
+	defer C.free(unsafe.Pointer(cObjectRef))
+
+	var clientError C.IedClientError
+	mmsValue := C.IedConnection_readObject(c.conn, &clientError, cObjectRef, C.FunctionalConstraint(fc))
+	if err := GetIedClientError(clientError); err != nil {
+		return nil, err
+	}
+	defer C.MmsValue_delete(mmsValue)
+
+	size := int(C.MmsValue_getOctetStringSize(mmsValue))
+	if size == 0 {
+		return []byte{}, nil
+	}
+
+	buffer := C.MmsValue_getOctetStringBuffer(mmsValue)
+	return C.GoBytes(unsafe.Pointer(buffer), C.int(size)), nil
+}
+
+// ReadBitString reads a bit string value
+func (c *Client) ReadBitString(objectRef string, fc FC) ([]byte, error) {
+	cObjectRef := C.CString(objectRef)
+	defer C.free(unsafe.Pointer(cObjectRef))
+
+	var clientError C.IedClientError
+	mmsValue := C.IedConnection_readObject(c.conn, &clientError, cObjectRef, C.FunctionalConstraint(fc))
+	if err := GetIedClientError(clientError); err != nil {
+		return nil, err
+	}
+	defer C.MmsValue_delete(mmsValue)
+
+	byteSize := int(C.MmsValue_getBitStringByteSize(mmsValue))
+	if byteSize == 0 {
+		return []byte{}, nil
+	}
+
+	// Read bit string as integer and convert to bytes
+	// For larger bit strings, read bit by bit
+	result := make([]byte, byteSize)
+	for i := 0; i < byteSize; i++ {
+		var byteVal byte
+		for j := 0; j < 8; j++ {
+			bitPos := i*8 + j
+			if bitPos < int(C.MmsValue_getBitStringSize(mmsValue)) {
+				if C.MmsValue_getBitStringBit(mmsValue, C.int(bitPos)) {
+					byteVal |= 1 << uint(7-j)
+				}
+			}
+		}
+		result[i] = byteVal
+	}
+
+	return result, nil
 }
 
 // Read 读取属性数据
@@ -216,6 +371,121 @@ func (c *Client) Close() {
 			C.TLSConfiguration_destroy(c.tlsConfig)
 		}
 	}
+}
+
+// GetState returns the current connection state
+func (c *Client) GetState() IedConnectionState {
+	return IedConnectionState(C.IedConnection_getState(c.conn))
+}
+
+// GetLastApplError returns the last application error received
+func (c *Client) GetLastApplError() LastApplError {
+	lastApplError := C.IedConnection_getLastApplError(c.conn)
+	return LastApplError{
+		CtlNum:   int(lastApplError.ctlNum),
+		Error:    int(lastApplError.error),
+		AddCause: int(lastApplError.addCause),
+	}
+}
+
+// GetRequestTimeout returns the current request timeout in milliseconds
+func (c *Client) GetRequestTimeout() uint32 {
+	return uint32(C.IedConnection_getRequestTimeout(c.conn))
+}
+
+// GetServerFileDirectory retrieves the file directory from the server
+func (c *Client) GetServerFileDirectory(directoryName string) ([]string, error) {
+	cDirectoryName := C.CString(directoryName)
+	defer C.free(unsafe.Pointer(cDirectoryName))
+
+	var clientError C.IedClientError
+	linkedList := C.IedConnection_getFileDirectory(c.conn, &clientError, cDirectoryName)
+	if err := GetIedClientError(clientError); err != nil {
+		return nil, err
+	}
+	defer C.LinkedList_destroy(linkedList)
+
+	var result []string
+	current := linkedList
+	for current != nil {
+		if current.data != nil {
+			fileEntry := C.FileDirectoryEntry(current.data)
+			fileName := C.GoString(C.FileDirectoryEntry_getFileName(fileEntry))
+			result = append(result, fileName)
+		}
+		current = current.next
+	}
+
+	return result, nil
+}
+
+// FileDirectoryEntry contains file metadata
+type FileDirectoryEntry struct {
+	FileName     string
+	FileSize     uint32
+	LastModified uint64
+}
+
+// GetFileDirectoryEx retrieves detailed file directory information from the server
+func (c *Client) GetFileDirectoryEx(directoryName, continueAfter string) ([]FileDirectoryEntry, bool, error) {
+	cDirectoryName := C.CString(directoryName)
+	defer C.free(unsafe.Pointer(cDirectoryName))
+
+	var cContinueAfter *C.char
+	if continueAfter != "" {
+		cContinueAfter = C.CString(continueAfter)
+		defer C.free(unsafe.Pointer(cContinueAfter))
+	}
+
+	var clientError C.IedClientError
+	var moreFollows C.bool
+	linkedList := C.IedConnection_getFileDirectoryEx(c.conn, &clientError, cDirectoryName, cContinueAfter, &moreFollows)
+	if err := GetIedClientError(clientError); err != nil {
+		return nil, false, err
+	}
+	defer C.LinkedList_destroy(linkedList)
+
+	var result []FileDirectoryEntry
+	current := linkedList
+	for current != nil {
+		if current.data != nil {
+			fileEntry := C.FileDirectoryEntry(current.data)
+			entry := FileDirectoryEntry{
+				FileName:     C.GoString(C.FileDirectoryEntry_getFileName(fileEntry)),
+				FileSize:     uint32(C.FileDirectoryEntry_getFileSize(fileEntry)),
+				LastModified: uint64(C.FileDirectoryEntry_getLastModified(fileEntry)),
+			}
+			result = append(result, entry)
+		}
+		current = current.next
+	}
+
+	return result, bool(moreFollows), nil
+}
+
+// GetFile retrieves a file from the server
+func (c *Client) GetFile(fileName string) ([]byte, error) {
+	cFileName := C.CString(fileName)
+	defer C.free(unsafe.Pointer(cFileName))
+
+	var clientError C.IedClientError
+	var fileData []byte
+
+	// File handler callback
+	handler := func(parameter unsafe.Pointer, buffer *C.uint8_t, bytesRead C.uint32_t) C.bool {
+		if bytesRead > 0 {
+			chunk := C.GoBytes(unsafe.Pointer(buffer), C.int(bytesRead))
+			fileData = append(fileData, chunk...)
+		}
+		return C.bool(true) // Continue reading
+	}
+
+	C.IedConnection_getFile(c.conn, &clientError, cFileName, (*[0]byte)(C.IedClientGetFileHandler(unsafe.Pointer(&handler))), nil)
+	if err := GetIedClientError(clientError); err != nil {
+		return nil, err
+	}
+
+	return fileData, nil
 }
 
 // GetVariableSpecType 获取类型规格
