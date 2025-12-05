@@ -2,8 +2,13 @@ package iec61850
 
 // #include <iec61850_client.h>
 // #include <mms_value.h>
+// #include <stdlib.h>
+//
+// extern bool goFileHandlerCallback(void* parameter, uint8_t* buffer, uint32_t bytesRead);
+// extern void callGetFile(IedConnection conn, IedClientError* error, const char* fileName, void* handlerParam);
 import "C"
 import (
+	"sync"
 	"sync/atomic"
 	"unsafe"
 )
@@ -12,6 +17,60 @@ type Client struct {
 	conn      C.IedConnection
 	tlsConfig C.TLSConfiguration
 	connected *atomic.Bool
+}
+
+// fileHandlerContext holds the context for GetFile callback
+type fileHandlerContext struct {
+	data  *[]byte
+	mutex *sync.Mutex
+}
+
+var (
+	fileHandlerRegistry   = make(map[uintptr]*fileHandlerContext)
+	fileHandlerRegistryMu sync.Mutex
+	fileHandlerIDCounter  uintptr
+)
+
+// registerFileHandler stores the context and returns a unique ID
+func registerFileHandler(ctx *fileHandlerContext) uintptr {
+	fileHandlerRegistryMu.Lock()
+	defer fileHandlerRegistryMu.Unlock()
+	fileHandlerIDCounter++
+	id := fileHandlerIDCounter
+	fileHandlerRegistry[id] = ctx
+	return id
+}
+
+// unregisterFileHandler removes the context from registry
+func unregisterFileHandler(id uintptr) {
+	fileHandlerRegistryMu.Lock()
+	defer fileHandlerRegistryMu.Unlock()
+	delete(fileHandlerRegistry, id)
+}
+
+// getFileHandlerContext retrieves the context by ID
+func getFileHandlerContext(id uintptr) *fileHandlerContext {
+	fileHandlerRegistryMu.Lock()
+	defer fileHandlerRegistryMu.Unlock()
+	return fileHandlerRegistry[id]
+}
+
+//export goFileHandlerCallback
+func goFileHandlerCallback(parameter unsafe.Pointer, buffer *C.uint8_t, bytesRead C.uint32_t) C.bool {
+	id := uintptr(parameter)
+	ctx := getFileHandlerContext(id)
+	if ctx == nil {
+		return C.bool(false)
+	}
+
+	if bytesRead > 0 && buffer != nil {
+		chunk := C.GoBytes(unsafe.Pointer(buffer), C.int(bytesRead))
+		ctx.mutex.Lock()
+		*ctx.data = append(*ctx.data, chunk...)
+		ctx.mutex.Unlock()
+	}
+
+	return C.bool(true) // Continue reading
 }
 
 // IedConnectionState represents the connection state
@@ -470,17 +529,21 @@ func (c *Client) GetFile(fileName string) ([]byte, error) {
 
 	var clientError C.IedClientError
 	var fileData []byte
+	var dataMutex sync.Mutex
 
-	// File handler callback
-	handler := func(parameter unsafe.Pointer, buffer *C.uint8_t, bytesRead C.uint32_t) C.bool {
-		if bytesRead > 0 {
-			chunk := C.GoBytes(unsafe.Pointer(buffer), C.int(bytesRead))
-			fileData = append(fileData, chunk...)
-		}
-		return C.bool(true) // Continue reading
+	// Create context for callback
+	ctx := &fileHandlerContext{
+		data:  &fileData,
+		mutex: &dataMutex,
 	}
 
-	C.IedConnection_getFile(c.conn, &clientError, cFileName, (*[0]byte)(C.IedClientGetFileHandler(unsafe.Pointer(&handler))), nil)
+	// Register context and get ID to pass to C
+	handlerID := registerFileHandler(ctx)
+	defer unregisterFileHandler(handlerID)
+
+	// Call C wrapper function with callback
+	C.callGetFile(c.conn, &clientError, cFileName, unsafe.Pointer(handlerID))
+
 	if err := GetIedClientError(clientError); err != nil {
 		return nil, err
 	}
