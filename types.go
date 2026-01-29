@@ -7,6 +7,13 @@ type MmsValue struct {
 	Value interface{}
 }
 
+// UtcTimeValue holds a UTC time from an MMS UTCTime with millisecond precision and time quality.
+// Returned when reading a UTCTime attribute via Client.Read() or related APIs.
+type UtcTimeValue struct {
+	Milliseconds uint64 // Milliseconds since Unix epoch (1970-01-01 00:00:00 UTC)
+	TimeQuality  uint8  // IEC 61850 time quality (leapSecondsKnown, clockFailure, clockNotSynchronized, subsecond accuracy)
+}
+
 // data types
 const (
 	Array MmsType = iota
