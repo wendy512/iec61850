@@ -1,0 +1,445 @@
+name: Build libiec61850 Libraries
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_libraries:
+        description: 'Commit built libraries to repository'
+        required: false
+        type: boolean
+        default: false
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - '.github/workflows/build-libraries.yml'
+      - 'scripts/rebuild_libraries.sh'
+
+env:
+  LIBIEC61850_VERSION: v1.6.1
+  ENABLE_R_GOOSE: 1
+  ENABLE_R_SMV: 1
+  ENABLE_SNTP: 1
+
+jobs:
+  build-linux-amd64:
+    name: Build Linux x86_64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake git libmbedtls-dev
+
+      - name: Clone libiec61850
+        run: |
+          git clone --depth 1 --branch ${{ env.LIBIEC61850_VERSION }} \
+            https://github.com/mz-automation/libiec61850.git /tmp/libiec61850
+
+      - name: Enable advanced features
+        run: |
+          cd /tmp/libiec61850
+          sed -i 's/#define CONFIG_IEC61850_R_GOOSE 0/#define CONFIG_IEC61850_R_GOOSE 1/' config/stack_config.h
+          sed -i 's/#define CONFIG_IEC61850_R_SMV 0/#define CONFIG_IEC61850_R_SMV 1/' config/stack_config.h
+          sed -i 's/#define CONFIG_IEC61850_SNTP_CLIENT 0/#define CONFIG_IEC61850_SNTP_CLIENT 1/' config/stack_config.h
+
+      - name: Build library
+        run: |
+          cd /tmp/libiec61850
+          mkdir build && cd build
+          cmake -DCMAKE_BUILD_TYPE=Release \
+                -DBUILD_EXAMPLES=OFF \
+                -DBUILD_PYTHON_BINDINGS=OFF \
+                ..
+          make -j$(nproc)
+
+      - name: Copy library to workspace
+        run: |
+          mkdir -p libiec61850/lib/linux64
+          cp /tmp/libiec61850/build/output/libiec61850.a libiec61850/lib/linux64/
+
+      - name: Verify library
+        run: |
+          file libiec61850/lib/linux64/libiec61850.a
+          ls -lh libiec61850/lib/linux64/libiec61850.a
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: libiec61850-linux64
+          path: libiec61850/lib/linux64/libiec61850.a
+          retention-days: 30
+
+  build-linux-armv7l:
+    name: Build Linux ARMv7l
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies and cross-compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake git
+          sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+
+      - name: Install mbedtls for ARM
+        run: |
+          # Build mbedtls for ARM
+          git clone --depth 1 --branch v3.5.1 https://github.com/Mbed-TLS/mbedtls.git /tmp/mbedtls
+          cd /tmp/mbedtls
+          mkdir build && cd build
+          cmake -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc \
+                -DCMAKE_CXX_COMPILER=arm-linux-gnueabihf-g++ \
+                -DENABLE_PROGRAMS=OFF \
+                -DENABLE_TESTING=OFF \
+                ..
+          make -j$(nproc)
+          sudo make install
+
+      - name: Clone libiec61850
+        run: |
+          git clone --depth 1 --branch ${{ env.LIBIEC61850_VERSION }} \
+            https://github.com/mz-automation/libiec61850.git /tmp/libiec61850
+
+      - name: Enable advanced features
+        run: |
+          cd /tmp/libiec61850
+          sed -i 's/#define CONFIG_IEC61850_R_GOOSE 0/#define CONFIG_IEC61850_R_GOOSE 1/' config/stack_config.h
+          sed -i 's/#define CONFIG_IEC61850_R_SMV 0/#define CONFIG_IEC61850_R_SMV 1/' config/stack_config.h
+          sed -i 's/#define CONFIG_IEC61850_SNTP_CLIENT 0/#define CONFIG_IEC61850_SNTP_CLIENT 1/' config/stack_config.h
+
+      - name: Create toolchain file
+        run: |
+          cat > /tmp/armv7l-toolchain.cmake << 'EOF'
+          set(CMAKE_SYSTEM_NAME Linux)
+          set(CMAKE_SYSTEM_PROCESSOR arm)
+          set(CMAKE_C_COMPILER arm-linux-gnueabihf-gcc)
+          set(CMAKE_CXX_COMPILER arm-linux-gnueabihf-g++)
+          set(CMAKE_FIND_ROOT_PATH /usr/arm-linux-gnueabihf)
+          set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+          set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+          set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+          EOF
+
+      - name: Build library
+        run: |
+          cd /tmp/libiec61850
+          mkdir build && cd build
+          cmake -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_TOOLCHAIN_FILE=/tmp/armv7l-toolchain.cmake \
+                -DBUILD_EXAMPLES=OFF \
+                -DBUILD_PYTHON_BINDINGS=OFF \
+                ..
+          make -j$(nproc)
+
+      - name: Copy library to workspace
+        run: |
+          mkdir -p libiec61850/lib/linux_armv7l
+          cp /tmp/libiec61850/build/output/libiec61850.a libiec61850/lib/linux_armv7l/
+
+      - name: Verify library
+        run: |
+          file libiec61850/lib/linux_armv7l/libiec61850.a
+          ls -lh libiec61850/lib/linux_armv7l/libiec61850.a
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: libiec61850-linux-armv7l
+          path: libiec61850/lib/linux_armv7l/libiec61850.a
+          retention-days: 30
+
+  build-linux-armv8:
+    name: Build Linux ARMv8 (ARM64)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies and cross-compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake git
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+      - name: Install mbedtls for ARM64
+        run: |
+          # Build mbedtls for ARM64
+          git clone --depth 1 --branch v3.5.1 https://github.com/Mbed-TLS/mbedtls.git /tmp/mbedtls
+          cd /tmp/mbedtls
+          mkdir build && cd build
+          cmake -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+                -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+                -DENABLE_PROGRAMS=OFF \
+                -DENABLE_TESTING=OFF \
+                ..
+          make -j$(nproc)
+          sudo make install
+
+      - name: Clone libiec61850
+        run: |
+          git clone --depth 1 --branch ${{ env.LIBIEC61850_VERSION }} \
+            https://github.com/mz-automation/libiec61850.git /tmp/libiec61850
+
+      - name: Enable advanced features
+        run: |
+          cd /tmp/libiec61850
+          sed -i 's/#define CONFIG_IEC61850_R_GOOSE 0/#define CONFIG_IEC61850_R_GOOSE 1/' config/stack_config.h
+          sed -i 's/#define CONFIG_IEC61850_R_SMV 0/#define CONFIG_IEC61850_R_SMV 1/' config/stack_config.h
+          sed -i 's/#define CONFIG_IEC61850_SNTP_CLIENT 0/#define CONFIG_IEC61850_SNTP_CLIENT 1/' config/stack_config.h
+
+      - name: Create toolchain file
+        run: |
+          cat > /tmp/armv8-toolchain.cmake << 'EOF'
+          set(CMAKE_SYSTEM_NAME Linux)
+          set(CMAKE_SYSTEM_PROCESSOR aarch64)
+          set(CMAKE_C_COMPILER aarch64-linux-gnu-gcc)
+          set(CMAKE_CXX_COMPILER aarch64-linux-gnu-g++)
+          set(CMAKE_FIND_ROOT_PATH /usr/aarch64-linux-gnu)
+          set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+          set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+          set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+          EOF
+
+      - name: Build library
+        run: |
+          cd /tmp/libiec61850
+          mkdir build && cd build
+          cmake -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_TOOLCHAIN_FILE=/tmp/armv8-toolchain.cmake \
+                -DBUILD_EXAMPLES=OFF \
+                -DBUILD_PYTHON_BINDINGS=OFF \
+                ..
+          make -j$(nproc)
+
+      - name: Copy library to workspace
+        run: |
+          mkdir -p libiec61850/lib/linux_armv8
+          cp /tmp/libiec61850/build/output/libiec61850.a libiec61850/lib/linux_armv8/
+
+      - name: Verify library
+        run: |
+          file libiec61850/lib/linux_armv8/libiec61850.a
+          ls -lh libiec61850/lib/linux_armv8/libiec61850.a
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: libiec61850-linux-armv8
+          path: libiec61850/lib/linux_armv8/libiec61850.a
+          retention-days: 30
+
+  build-macos-arm64:
+    name: Build macOS ARM64
+    runs-on: macos-14  # M1 runner
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install cmake mbedtls
+
+      - name: Clone libiec61850
+        run: |
+          git clone --depth 1 --branch ${{ env.LIBIEC61850_VERSION }} \
+            https://github.com/mz-automation/libiec61850.git /tmp/libiec61850
+
+      - name: Enable advanced features
+        run: |
+          cd /tmp/libiec61850
+          sed -i '' 's/#define CONFIG_IEC61850_R_GOOSE 0/#define CONFIG_IEC61850_R_GOOSE 1/' config/stack_config.h
+          sed -i '' 's/#define CONFIG_IEC61850_R_SMV 0/#define CONFIG_IEC61850_R_SMV 1/' config/stack_config.h
+          sed -i '' 's/#define CONFIG_IEC61850_SNTP_CLIENT 0/#define CONFIG_IEC61850_SNTP_CLIENT 1/' config/stack_config.h
+
+      - name: Build library
+        run: |
+          cd /tmp/libiec61850
+          mkdir build && cd build
+          cmake -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_OSX_ARCHITECTURES=arm64 \
+                -DBUILD_EXAMPLES=OFF \
+                -DBUILD_PYTHON_BINDINGS=OFF \
+                ..
+          make -j$(sysctl -n hw.ncpu)
+
+      - name: Copy library to workspace
+        run: |
+          mkdir -p libiec61850/lib/darwin_armv8
+          cp /tmp/libiec61850/build/output/libiec61850.a libiec61850/lib/darwin_armv8/
+
+      - name: Verify library
+        run: |
+          file libiec61850/lib/darwin_armv8/libiec61850.a
+          ls -lh libiec61850/lib/darwin_armv8/libiec61850.a
+          lipo -info libiec61850/lib/darwin_armv8/libiec61850.a
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: libiec61850-darwin-arm64
+          path: libiec61850/lib/darwin_armv8/libiec61850.a
+          retention-days: 30
+
+  build-windows-amd64:
+    name: Build Windows x64
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install mbedtls via vcpkg
+        run: |
+          vcpkg install mbedtls:x64-windows
+          vcpkg integrate install
+
+      - name: Clone libiec61850
+        run: |
+          git clone --depth 1 --branch ${{ env.LIBIEC61850_VERSION }} https://github.com/mz-automation/libiec61850.git C:\temp\libiec61850
+
+      - name: Enable advanced features
+        shell: pwsh
+        run: |
+          $configFile = "C:\temp\libiec61850\config\stack_config.h"
+          (Get-Content $configFile) -replace '#define CONFIG_IEC61850_R_GOOSE 0', '#define CONFIG_IEC61850_R_GOOSE 1' | Set-Content $configFile
+          (Get-Content $configFile) -replace '#define CONFIG_IEC61850_R_SMV 0', '#define CONFIG_IEC61850_R_SMV 1' | Set-Content $configFile
+          (Get-Content $configFile) -replace '#define CONFIG_IEC61850_SNTP_CLIENT 0', '#define CONFIG_IEC61850_SNTP_CLIENT 1' | Set-Content $configFile
+
+      - name: Build library
+        shell: cmd
+        run: |
+          cd C:\temp\libiec61850
+          mkdir build
+          cd build
+          cmake -G "Visual Studio 17 2022" -A x64 ^
+                -DCMAKE_BUILD_TYPE=Release ^
+                -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake ^
+                -DBUILD_EXAMPLES=OFF ^
+                -DBUILD_PYTHON_BINDINGS=OFF ^
+                ..
+          cmake --build . --config Release
+
+      - name: Copy library to workspace
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path libiec61850/lib/win64
+          Copy-Item C:\temp\libiec61850\build\output\Release\iec61850.lib libiec61850/lib/win64/libiec61850.a
+
+      - name: Verify library
+        shell: pwsh
+        run: |
+          Get-Item libiec61850/lib/win64/libiec61850.a
+          Get-ChildItem libiec61850/lib/win64/libiec61850.a | Format-List
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: libiec61850-windows-x64
+          path: libiec61850/lib/win64/libiec61850.a
+          retention-days: 30
+
+  verify-and-commit:
+    name: Verify and Commit Libraries
+    needs: [build-linux-amd64, build-linux-armv7l, build-linux-armv8, build-macos-arm64, build-windows-amd64]
+    runs-on: ubuntu-latest
+    if: github.event.inputs.commit_libraries == 'true' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Copy libraries to correct locations
+        run: |
+          mkdir -p libiec61850/lib/linux64
+          mkdir -p libiec61850/lib/linux_armv7l
+          mkdir -p libiec61850/lib/linux_armv8
+          mkdir -p libiec61850/lib/darwin_armv8
+          mkdir -p libiec61850/lib/win64
+          
+          cp artifacts/libiec61850-linux64/libiec61850.a libiec61850/lib/linux64/
+          cp artifacts/libiec61850-linux-armv7l/libiec61850.a libiec61850/lib/linux_armv7l/
+          cp artifacts/libiec61850-linux-armv8/libiec61850.a libiec61850/lib/linux_armv8/
+          cp artifacts/libiec61850-darwin-arm64/libiec61850.a libiec61850/lib/darwin_armv8/
+          cp artifacts/libiec61850-windows-x64/libiec61850.a libiec61850/lib/win64/
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Verify build on Linux
+        run: |
+          go build ./...
+          echo "Build successful!"
+
+      - name: List all libraries
+        run: |
+          echo "Built libraries:"
+          ls -lh libiec61850/lib/*/libiec61850.a
+
+      - name: Configure Git
+        if: github.event.inputs.commit_libraries == 'true'
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+      - name: Commit libraries
+        if: github.event.inputs.commit_libraries == 'true'
+        run: |
+          git add libiec61850/lib/*/libiec61850.a
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Build: Update libiec61850 v1.6.1 libraries for all platforms" \
+                       -m "" \
+                       -m "Built with:" \
+                       -m "- R-GOOSE enabled" \
+                       -m "- R-SMV enabled" \
+                       -m "- SNTP client enabled" \
+                       -m "" \
+                       -m "Platforms:" \
+                       -m "- Linux x86_64" \
+                       -m "- Linux ARMv7l" \
+                       -m "- Linux ARMv8 (ARM64)" \
+                       -m "- macOS ARM64" \
+                       -m "- Windows x64" \
+                       -m "" \
+                       -m "Auto-built by GitHub Actions"
+            git push
+          fi
+
+      - name: Create artifact summary
+        run: |
+          echo "# Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Built Libraries" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Platform | Size | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Linux x86_64 | $(du -h libiec61850/lib/linux64/libiec61850.a | cut -f1) | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Linux ARMv7l | $(du -h libiec61850/lib/linux_armv7l/libiec61850.a | cut -f1) | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Linux ARMv8 | $(du -h libiec61850/lib/linux_armv8/libiec61850.a | cut -f1) | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| macOS ARM64 | $(du -h libiec61850/lib/darwin_armv8/libiec61850.a | cut -f1) | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Windows x64 | $(du -h libiec61850/lib/win64/libiec61850.a | cut -f1) | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- libiec61850: v1.6.1" >> $GITHUB_STEP_SUMMARY
+          echo "- R-GOOSE: ✅ Enabled" >> $GITHUB_STEP_SUMMARY
+          echo "- R-SMV: ✅ Enabled" >> $GITHUB_STEP_SUMMARY
+          echo "- SNTP Client: ✅ Enabled" >> $GITHUB_STEP_SUMMARY
