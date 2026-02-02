@@ -36,6 +36,8 @@ The library support the following IEC 61850 protocol features:
 
 ## How to use
 
+It is recommended to use [GCC 14.2.0](https://github.com/brechtsanders/winlibs_mingw/releases/download/14.2.0posix-19.1.1-12.0.0-ucrt-r2/winlibs-x86_64-posix-seh-gcc-14.2.0-llvm-19.1.1-mingw-w64ucrt-12.0.0-r2.zip) as the GCC compiler.
+
 ```shell
 go get -u github.com/wendy512/iec61850
 ```
