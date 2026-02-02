@@ -1,5 +1,3 @@
-//go:build linux && amd64
-
 package goose_publisher
 
 import (
