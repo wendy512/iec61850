@@ -35,6 +35,8 @@ iec61850 是实现 MMS、GOOSE 和 SV 协议的 IEC 61850 客户端和服务器�
 
 ## 如何使用
 
+建议使用 [GCC 14.2.0](https://github.com/brechtsanders/winlibs_mingw/releases/download/14.2.0posix-19.1.1-12.0.0-ucrt-r2/winlibs-x86_64-posix-seh-gcc-14.2.0-llvm-19.1.1-mingw-w64ucrt-12.0.0-r2.zip) 作为GCC编译器。
+
 ```shell
 go get -u github.com/wendy512/iec61850
 ```
