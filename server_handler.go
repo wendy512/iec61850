@@ -31,14 +31,15 @@ import "C"
 
 import (
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"unsafe"
 )
 
 var (
 	callbackIdGen        = atomic.Int32{}
-	writeAccessCallbacks = make(map[int32]*writeAccessCallback)
-	controlCallbacks     = make(map[int32]*controlCallback)
+	writeAccessCallbacks sync.Map
+	controlCallbacks     sync.Map
 )
 
 type writeAccessCallback struct {
@@ -81,18 +82,20 @@ type ClientAuthenticator func(securityToken *unsafe.Pointer, authParameter *Acse
 //export writeAccessHandlerBridge
 func writeAccessHandlerBridge(dataAttribute *C.DataAttribute, value *C.MmsValue, connection C.ClientConnection, parameter unsafe.Pointer) C.MmsDataAccessError {
 	callbackId := int32(uintptr(parameter))
-	if call, ok := writeAccessCallbacks[callbackId]; ok {
+	if val, ok := writeAccessCallbacks.Load(callbackId); ok {
+		if call, ok := val.(*writeAccessCallback); ok {
 
-		mmsType := MmsType(C.MmsValue_getType(value))
-		if goValue, err := toGoValue(value, mmsType); err == nil {
+			mmsType := MmsType(C.MmsValue_getType(value))
+			if goValue, err := toGoValue(value, mmsType); err == nil {
 
-			dataAccessError := call.handler(call.node, &MmsValue{
-				Type:  mmsType,
-				Value: goValue,
-			})
-			return C.MmsDataAccessError(dataAccessError)
-		} else {
-			fmt.Printf("mms value to go value error: %v\n", err)
+				dataAccessError := call.handler(call.node, &MmsValue{
+					Type:  mmsType,
+					Value: goValue,
+				})
+				return C.MmsDataAccessError(dataAccessError)
+			} else {
+				fmt.Printf("mms value to go value error: %v\n", err)
+			}
 		}
 	}
 	return C.DATA_ACCESS_ERROR_OBJECT_ACCESS_DENIED
@@ -101,34 +104,36 @@ func writeAccessHandlerBridge(dataAttribute *C.DataAttribute, value *C.MmsValue,
 //export controlHandlerBridge
 func controlHandlerBridge(action C.ControlAction, parameter unsafe.Pointer, ctlVal *C.MmsValue, test C.bool) C.ControlHandlerResult {
 	callbackId := int32(uintptr(parameter))
-	if call, ok := controlCallbacks[callbackId]; ok {
+	if val, ok := controlCallbacks.Load(callbackId); ok {
+		if call, ok := val.(*controlCallback); ok {
 
-		mmsType := MmsType(C.MmsValue_getType(ctlVal))
-		if goValue, err := toGoValue(ctlVal, mmsType); err == nil {
+			mmsType := MmsType(C.MmsValue_getType(ctlVal))
+			if goValue, err := toGoValue(ctlVal, mmsType); err == nil {
 
-			var (
-				orIdentSize C.int
-				orIdent     []byte
-			)
+				var (
+					orIdentSize C.int
+					orIdent     []byte
+				)
 
-			orIdentBuffer := C.ControlAction_getOrIdent(action, (*C.int)(unsafe.Pointer(&orIdentSize)))
-			if orIdentBuffer != nil {
-				size := int(orIdentSize)
-				orIdent = C.GoBytes(unsafe.Pointer(orIdentBuffer), C.int(size))
+				orIdentBuffer := C.ControlAction_getOrIdent(action, (*C.int)(unsafe.Pointer(&orIdentSize)))
+				if orIdentBuffer != nil {
+					size := int(orIdentSize)
+					orIdent = C.GoBytes(unsafe.Pointer(orIdentBuffer), C.int(size))
+				}
+
+				actionFill := &ControlAction{
+					ControlTime:    uint64(C.ControlAction_getControlTime(action)),
+					IsSelect:       bool(C.ControlAction_isSelect(action)),
+					InterlockCheck: bool(C.ControlAction_getInterlockCheck(action)),
+					SynchroCheck:   bool(C.ControlAction_getSynchroCheck(action)),
+					CtlNum:         int(C.ControlAction_getCtlNum(action)),
+					OrIdent:        orIdent,
+					OrCat:          int(C.ControlAction_getOrCat(action)),
+				}
+
+				controlHandlerResult := call.handler(call.node, actionFill, &MmsValue{mmsType, goValue}, bool(test))
+				return C.ControlHandlerResult(controlHandlerResult)
 			}
-
-			actionFill := &ControlAction{
-				ControlTime:    uint64(C.ControlAction_getControlTime(action)),
-				IsSelect:       bool(C.ControlAction_isSelect(action)),
-				InterlockCheck: bool(C.ControlAction_getInterlockCheck(action)),
-				SynchroCheck:   bool(C.ControlAction_getSynchroCheck(action)),
-				CtlNum:         int(C.ControlAction_getCtlNum(action)),
-				OrIdent:        orIdent,
-				OrCat:          int(C.ControlAction_getOrCat(action)),
-			}
-
-			controlHandlerResult := call.handler(call.node, actionFill, &MmsValue{mmsType, goValue}, bool(test))
-			return C.ControlHandlerResult(controlHandlerResult)
 		}
 	}
 	return C.CONTROL_RESULT_FAILED
@@ -178,10 +183,10 @@ func (is *IedServer) SetHandleWriteAccess(modelNode *ModelNode, handler WriteAcc
 	callbackId := callbackIdGen.Add(1)
 	// 将 int 转为 uintptr，再转为 unsafe.Pointer
 	cPtr := intToPointerBug58625(callbackId)
-	writeAccessCallbacks[callbackId] = &writeAccessCallback{
+	writeAccessCallbacks.Store(callbackId, &writeAccessCallback{
 		node:    modelNode,
 		handler: handler,
-	}
+	})
 
 	C.IedServer_handleWriteAccess(is.server, (*C.DataAttribute)(modelNode._modelNode), (*[0]byte)(C.writeAccessHandlerBridge), cPtr)
 }
@@ -194,10 +199,10 @@ func (is *IedServer) SetControlHandler(modelNode *ModelNode, handler ControlHand
 	callbackId := callbackIdGen.Add(1)
 	// 将 int 转为 uintptr，再转为 unsafe.Pointer
 	cPtr := intToPointerBug58625(callbackId)
-	controlCallbacks[callbackId] = &controlCallback{
+	controlCallbacks.Store(callbackId, &controlCallback{
 		node:    modelNode,
 		handler: handler,
-	}
+	})
 
 	C.IedServer_setControlHandler(is.server, (*C.DataObject)(modelNode._modelNode), (*[0]byte)(C.controlHandlerBridge), cPtr)
 }

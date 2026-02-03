@@ -7,10 +7,11 @@ extern void reportCallbackFunctionBridge(void* parameter, ClientReport report);
 */
 import "C"
 import (
+	"sync"
 	"unsafe"
 )
 
-var reportCallbacks = make(map[int32]*reportCallbackHandler)
+var reportCallbacks sync.Map
 
 type ReasonForInclusion int
 
@@ -37,10 +38,12 @@ type ReportCallbackFunction func(clientReport ClientReport)
 //export reportCallbackFunctionBridge
 func reportCallbackFunctionBridge(parameter unsafe.Pointer, report C.ClientReport) {
 	callbackId := int32(uintptr(parameter))
-	if call, ok := reportCallbacks[callbackId]; ok {
-		call.handler(ClientReport{
-			Report: report,
-		})
+	if val, ok := reportCallbacks.Load(callbackId); ok {
+		if call, ok := val.(*reportCallbackHandler); ok {
+			call.handler(ClientReport{
+				Report: report,
+			})
+		}
 	}
 }
 
@@ -170,9 +173,9 @@ func (c *Client) InstallReportHandler(objectReference string, function ReportCal
 
 	callbackId := callbackIdGen.Add(1)
 	cPtr := intToPointerBug58625(callbackId)
-	reportCallbacks[callbackId] = &reportCallbackHandler{
+	reportCallbacks.Store(callbackId, &reportCallbackHandler{
 		handler: function,
-	}
+	})
 
 	C.IedConnection_installReportHandler(c.conn, cObjectRef, C.ClientReportControlBlock_getRptId(rcb), (*[0]byte)(C.reportCallbackFunctionBridge), cPtr)
 
