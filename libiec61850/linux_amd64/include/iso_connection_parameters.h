@@ -1,7 +1,7 @@
 /*
  *  iso_connection_parameters.h
  *
- *  Copyright 2013-2018 Michael Zillgith
+ *  Copyright 2013-2023 Michael Zillgith
  *
  *  This file is part of libIEC61850.
  *
@@ -23,6 +23,10 @@
 
 #ifndef ISO_CONNECTION_PARAMETERS_H_
 #define ISO_CONNECTION_PARAMETERS_H_
+
+#ifndef CONFIG_MMS_SUPPORT_TLS
+#define CONFIG_MMS_SUPPORT_TLS 0
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -87,11 +91,31 @@ AcseAuthenticationParameter_destroy(AcseAuthenticationParameter self);
 LIB61850_API void
 AcseAuthenticationParameter_setAuthMechanism(AcseAuthenticationParameter self, AcseAuthenticationMechanism mechanism);
 
+LIB61850_API AcseAuthenticationMechanism
+AcseAuthenticationParameter_getAuthMechanism(AcseAuthenticationParameter self);
+
 LIB61850_API void
 AcseAuthenticationParameter_setPassword(AcseAuthenticationParameter self, char* password);
 
+LIB61850_API const char*
+AcseAuthenticationParameter_getPassword(AcseAuthenticationParameter self);
 
-/**
+LIB61850_API int
+AcseAuthenticationParameter_getPasswordLength(AcseAuthenticationParameter self);
+
+LIB61850_API int
+IsoApplicationReference_getAeQualifier(IsoApplicationReference self);
+
+LIB61850_API const ItuObjectIdentifier*
+IsoApplicationReference_getApTitle(const IsoApplicationReference* self);
+
+LIB61850_API int
+ItuObjectIdentifier_getArcCount(ItuObjectIdentifier* self);
+
+LIB61850_API const uint16_t*
+ItuObjectIdentifier_getArc(ItuObjectIdentifier* self);
+
+ /**
  * \brief Callback function to authenticate a client
  *
  * \param parameter user provided parameter - set when user registers the authenticator
@@ -230,7 +254,6 @@ IsoConnectionParameters_setTcpParameters(IsoConnectionParameters self, const cha
 */
 LIB61850_API void
 IsoConnectionParameters_setLocalTcpParameters(IsoConnectionParameters self, const char* localIpAddress, int localTcpPort);
-
 
 /**
  * \brief set the remote AP-Title and AE-Qualifier

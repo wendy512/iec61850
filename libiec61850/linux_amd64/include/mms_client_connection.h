@@ -281,6 +281,8 @@ MmsConnection_destroy(MmsConnection self);
 LIB61850_API bool
 MmsConnection_connect(MmsConnection self, MmsError* mmsError, const char* serverName, int serverPort);
 
+
+
 LIB61850_API void
 MmsConnection_connectAsync(MmsConnection self, MmsError* mmsError, const char* serverName, int serverPort);
 

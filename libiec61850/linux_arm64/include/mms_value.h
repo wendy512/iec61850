@@ -985,7 +985,7 @@ MmsValue_getSubElement(MmsValue* self, MmsVariableSpecification* varSpec, char* 
  *
  * \return the value type as a human readable string
  */
-LIB61850_API char*
+LIB61850_API const char*
 MmsValue_getTypeString(MmsValue* self);
 
 /**
@@ -1019,6 +1019,20 @@ LIB61850_API MmsValue*
 MmsValue_decodeMmsData(uint8_t* buffer, int bufPos, int bufferLength, int* endBufPos);
 
 /**
+ * \brief create a new MmsValue instance from a BER encoded MMS Data element (deserialize) with a defined maximum recursion depth
+ *
+ * \param buffer the buffer to read from
+ * \param bufPos the start position of the mms value data in the buffer
+ * \param bufferLength the length of the buffer
+ * \param endBufPos the position in the buffer after the read MMS data element (NULL if not required)
+ * \param maxDepth the maximum recursion depth
+ *
+ * \return the MmsValue instance created from the buffer
+ */
+LIB61850_API MmsValue*
+MmsValue_decodeMmsDataMaxRecursion(uint8_t* buffer, int bufPos, int bufferLength, int* endBufPos, int maxDepth);
+
+/**
  * \brief Serialize the MmsValue instance as BER encoded MMS Data element
  *
  * \param self the MmsValue instance
@@ -1049,6 +1063,16 @@ MmsValue_getMaxEncodedSize(MmsValue* self);
  */
 LIB61850_API int
 MmsVariableSpecification_getMaxEncodedSize(MmsVariableSpecification* self);
+
+/**
+ * \brief Convert an MmsError to a string
+ *
+ * \param err the error to convert
+ *
+ * \return a static string representing the error
+ */
+LIB61850_API const char*
+MmsError_toString(MmsError err);
 
 /**@}*/
 
