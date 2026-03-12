@@ -4,27 +4,25 @@
 set -euo pipefail
 
 # MZ version to download
-MZ_VERSION=1.5
+MZ_VERSION=1.6
 
 # download the MZ-Automation libiec61850 library and extract it
 echo "Downloading libiec61850 version ${MZ_VERSION} from MZ-Automation..."
 if [ -d "./libiec61850-repo" ]; then
     echo "Directory ./libiec61850-repo already exists. Skipping download."
 else
-    # git clone -b v${MZ_VERSION} https://github.com/mz-automation/libiec61850.git ./libiec61850-repo
+    git clone -b v${MZ_VERSION} https://github.com/mz-automation/libiec61850.git ./libiec61850-repo
 
-    # temporarily use morris-kelly's fork which patches the issues with the include files
-    git clone -b include-updates https://github.com/morris-kelly/libiec61850.git ./libiec61850-repo
 fi
 
 # add the third_party libraries
 echo "Downloading third party libraries..."
 
-if [ -d "./libiec61850-repo/third_party/mbedtls/mbedtls-2.28" ]; then
-    echo "Directory ./libiec61850-repo/third_party/mbedtls/mbedtls-2.28 already exists. Skipping download."
+if [ -d "./libiec61850-repo/third_party/mbedtls/mbedtls-3.6.0" ]; then
+    echo "Directory ./libiec61850-repo/third_party/mbedtls/mbedtls-3.6.0 already exists. Skipping download."
 else
-    echo "Downloading mbedtls version 2.28.10..."
-    git clone -b v2.28.10 https://github.com/Mbed-TLS/mbedtls.git ./libiec61850-repo/third_party/mbedtls/mbedtls-2.28
+    echo "Downloading mbedtls version 3.6.0..."
+    git clone -b v3.6.0 https://github.com/Mbed-TLS/mbedtls.git ./libiec61850-repo/third_party/mbedtls/mbedtls-3.6.0
 fi
 
 # Winpcap
