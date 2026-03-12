@@ -38,9 +38,18 @@ cp -r ./WpdPack/Include ./libiec61850-repo/third_party/winpcap
 # build all the linux and mac libraries using docker
 docker compose up --build
 
+# compile for windows locally using the zig CC drop-in compiler in a sub shell
+(cd libiec61850-repo || exit && 
+make TARGET=WIN64 CC="zig cc -target x86_64-windows-gnu" CPP="zig c++ -target x86_64-windows-gnu" \
+AR="zig ar" RANLIB="zig ranlib" WITH_MBEDTLS3=1 \
+INSTALL_PREFIX=./build/windows_amd64 install
+)
+
 # now copy the built libraries to the libiec61850 directory 
 echo "Copying built libraries to libiec61850 directory..."
 cp -r ./build/* ./libiec61850/
+
+cp -r ./libiec61850-repo/build/windows_amd64/ ./libiec61850/windows_amd64
 
 # add the go files to each platform's include directory so that they're available for cgo
 echo "Copying go files to each platform's include directory..."
