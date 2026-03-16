@@ -4,19 +4,15 @@ package iec61850
 // if you want to use the cgo files, you should import this file
 
 import (
-	_ "github.com/wendy512/iec61850/libiec61850/inc/common/inc"
-	_ "github.com/wendy512/iec61850/libiec61850/inc/goose"
-	_ "github.com/wendy512/iec61850/libiec61850/inc/hal/inc"
-	_ "github.com/wendy512/iec61850/libiec61850/inc/iec61850/inc"
-	_ "github.com/wendy512/iec61850/libiec61850/inc/iec61850/inc_private"
-	_ "github.com/wendy512/iec61850/libiec61850/inc/logging"
-	_ "github.com/wendy512/iec61850/libiec61850/inc/mms/inc"
-	_ "github.com/wendy512/iec61850/libiec61850/inc/mms/inc_private"
-	_ "github.com/wendy512/iec61850/libiec61850/inc/mms/iso_mms/asn1c"
-	_ "github.com/wendy512/iec61850/libiec61850/inc/sampled_values"
+	_ "github.com/wendy512/iec61850/libiec61850/darwin_armv8/include"
+	_ "github.com/wendy512/iec61850/libiec61850/linux_amd64/include"
+	_ "github.com/wendy512/iec61850/libiec61850/linux_arm64/include"
+	_ "github.com/wendy512/iec61850/libiec61850/linux_armv7/include"
+	_ "github.com/wendy512/iec61850/libiec61850/win64/include"
 
-	_ "github.com/wendy512/iec61850/libiec61850/lib/linux64"
-	_ "github.com/wendy512/iec61850/libiec61850/lib/linux_armv7l"
-	_ "github.com/wendy512/iec61850/libiec61850/lib/linux_armv8"
-	_ "github.com/wendy512/iec61850/libiec61850/lib/win64"
+	_ "github.com/wendy512/iec61850/libiec61850/darwin_armv8/lib"
+	_ "github.com/wendy512/iec61850/libiec61850/linux_amd64/lib"
+	_ "github.com/wendy512/iec61850/libiec61850/linux_arm64/lib"
+	_ "github.com/wendy512/iec61850/libiec61850/linux_armv7/lib"
+	_ "github.com/wendy512/iec61850/libiec61850/win64/lib"
 )
