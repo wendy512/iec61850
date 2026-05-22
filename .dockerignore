@@ -1,0 +1,12 @@
+# Exclude host-built artifacts from the docker build context. 
+# These directories contain native macOS Mach-O object files left over from build_darwin_native in build.sh;
+# if they were copied into the Linux builder images, gcc would skip rebuilding them and the resulting .a would mix Mach-O and ELF members.
+libiec61850-repo/build/
+libiec61850-repo/build-cmake/
+
+# Outputs and host scratch
+build/
+libiec61850/
+
+# Git noise
+.git/

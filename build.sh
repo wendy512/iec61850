@@ -11,12 +11,59 @@ set -euo pipefail
 
 # Versions
 MZ_VERSION=1.6
-MBEDTLS_VERSION=2.28.7      # v1.6 of libiec61850 expects mbedtls-2.28
+# We extend the plain Makefile to support WITH_MBEDTLS3=1 via patch_makefile() below.
+MBEDTLS_VERSION=3.6.0
 WINPCAP_VERSION=4.1.2
 
 REPO_DIR="./libiec61850-repo"
-MBEDTLS_DIR="${REPO_DIR}/third_party/mbedtls/mbedtls-2.28"
+MBEDTLS_DIR="${REPO_DIR}/third_party/mbedtls/mbedtls-${MBEDTLS_VERSION}"
 WINPCAP_ZIP="WpdPack_${WINPCAP_VERSION//./_}.zip"
+
+# patch_makefile teaches the cloned libiec61850 Makefile two things upstream doesn't ship:
+#   1. WITH_MBEDTLS3=1 build flag (CMake supports it, plain Makefile doesn't).
+#      We mirror the existing WITH_MBEDTLS block for mbedtls-3.6.0 +
+#      hal/tls/mbedtls3 so we can produce an archive with TLS 1.3 support
+#      without switching to CMake (whose generated stack_config.h differs from
+#      the Makefile's and breaks downstream tests that rely on the defaults).
+#   2. `ar rcs` instead of `ar r` + ranlib. With mbedtls 3.6 the object list
+#      exceeds the threshold above which plain `ar r` produces an archive that
+#      ranlib then rejects as "malformed".
+patch_makefile() {
+    local makefile="$1/Makefile"
+
+    # Idempotency guard so re-running on an existing checkout is a no-op.
+    if grep -q '^ifdef WITH_MBEDTLS3' "${makefile}"; then
+        return 0
+    fi
+
+    awk '
+        /^LIB_INCLUDES = \$\(addprefix -I,\$\(LIB_INCLUDE_DIRS\)\)/ && !inserted {
+            print "ifdef WITH_MBEDTLS3"
+            print "LIB_SOURCE_DIRS += third_party/mbedtls/mbedtls-3.6.0/library"
+            print "LIB_SOURCE_DIRS += hal/tls/mbedtls3"
+            print "LIB_INCLUDE_DIRS += third_party/mbedtls/mbedtls-3.6.0/include"
+            print "LIB_INCLUDE_DIRS += hal/tls/mbedtls3"
+            print "CFLAGS += -D'\''MBEDTLS_CONFIG_FILE=\"mbedtls_config.h\"'\''"
+            print "CFLAGS += -D'\''CONFIG_MMS_SUPPORT_TLS=1'\''"
+            print "CFLAGS += -D'\''CONFIG_IEC61850_R_GOOSE=1'\''"
+            print "CFLAGS += -D'\''CONFIG_IEC61850_R_SMV=1'\''"
+            print "endif"
+            print ""
+            inserted = 1
+        }
+        { print }
+    ' "${makefile}" > "${makefile}.tmp" && mv "${makefile}.tmp" "${makefile}"
+
+    # ar r → rm + ar rcs (tab-indented Makefile recipe).
+    awk '
+        /^\t\$\(AR\) r \$\(LIB_NAME\) \$\(LIB_OBJS\)$/ {
+            print "\trm -f $(LIB_NAME)"
+            print "\t$(AR) rcs $(LIB_NAME) $(LIB_OBJS)"
+            next
+        }
+        { print }
+    ' "${makefile}" > "${makefile}.tmp" && mv "${makefile}.tmp" "${makefile}"
+}
 
 # Download sources
 echo "Downloading libiec61850 version ${MZ_VERSION} from MZ-Automation..."
@@ -24,6 +71,8 @@ if [ -d "${REPO_DIR}" ]; then
     echo "Directory ${REPO_DIR} already exists. Skipping download."
 else
     git clone --depth=1 -b "v${MZ_VERSION}" https://github.com/mz-automation/libiec61850.git "${REPO_DIR}"
+    # Teach the plain Makefile about WITH_MBEDTLS3=1 (CMake already supports it).
+    patch_makefile "${REPO_DIR}"
 fi
 
 echo "Downloading mbedtls version ${MBEDTLS_VERSION}..."
@@ -98,7 +147,7 @@ verify_archive() {
 
     # The Go bindings unconditionally reference these TLS symbols via cgo, so an archive without them will fail to link in any downstream project.
     if ! nm "${archive}" 2>/dev/null | grep -qE " T _?TLSConfiguration_create$"; then
-        echo "ERROR: ${archive} is missing TLSConfiguration_create — was the library built with WITH_MBEDTLS=1?" >&2
+        echo "ERROR: ${archive} is missing TLSConfiguration_create — was the library built with WITH_MBEDTLS3=1?" >&2
         exit 1
     fi
 
@@ -120,7 +169,7 @@ build_darwin_native() {
         # Clean only the build dir for this target, not the whole repo, so parallel native builds don't stomp on each other.
         rm -rf "build/${target_dir}"
         make clean >/dev/null
-        make WITH_MBEDTLS=1 \
+        make WITH_MBEDTLS3=1 \
              CFLAGS="${arch_flag} -O2 -g" \
              LDFLAGS="${arch_flag}" \
              INSTALL_PREFIX="$(pwd)/build/${target_dir}" \
@@ -155,7 +204,7 @@ fi
          CC="zig cc -target x86_64-windows-gnu" \
          CPP="zig c++ -target x86_64-windows-gnu" \
          AR="zig ar" RANLIB="zig ranlib" \
-         WITH_MBEDTLS=1 \
+         WITH_MBEDTLS3=1 \
          INSTALL_PREFIX=./build/windows_amd64 install
 )
 
