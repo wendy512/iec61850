@@ -1,36 +1,33 @@
 services:
+  # All Linux variants are built inside Docker so we get a clean, reproducible
+  # toolchain regardless of the host. macOS variants are NOT built here — see
+  # the `build_darwin` section in build.sh for the native build steps, since
+  # producing Mach-O binaries from a Linux container would require a full
+  # macOS SDK + cctools cross toolchain and still wouldn't be supported by
+  # Apple's license.
   builder-armv7:
-    build: 
+    build:
       context: .
       target: debian
     platform: linux/arm/v7
     volumes:
       - ./build:/build
-    command: sh -c "mkdir -p /build/linux_armv7 && cd /app/libiec61850-repo && make WITH_MBEDTLS3=1 INSTALL_PREFIX=/build/linux_armv7 install"
+    command: sh -c "mkdir -p /build/linux_armv7 && cd /app/libiec61850-repo && make WITH_MBEDTLS=1 INSTALL_PREFIX=/build/linux_armv7 install"
 
   builder-arm64:
-    build: 
+    build:
       context: .
       target: debian
     platform: linux/arm64
     volumes:
       - ./build:/build
-    command: sh -c "mkdir -p /build/linux_arm64 && cd /app/libiec61850-repo && make WITH_MBEDTLS3=1 INSTALL_PREFIX=/build/linux_arm64 install"
-
-  builder-darwin-armv8:
-    build: 
-      context: .
-      target: debian
-    platform: linux/arm64
-    volumes:
-      - ./build:/build
-    command: sh -c "mkdir -p /build/darwin_armv8 && cd /app/libiec61850-repo && make WITH_MBEDTLS3=1 INSTALL_PREFIX=/build/darwin_armv8 install"
+    command: sh -c "mkdir -p /build/linux_arm64 && cd /app/libiec61850-repo && make WITH_MBEDTLS=1 INSTALL_PREFIX=/build/linux_arm64 install"
 
   builder-amd64:
-    build: 
+    build:
       context: .
       target: debian
     platform: linux/amd64
     volumes:
       - ./build:/build
-    command: sh -c "mkdir -p /build/linux_amd64 && cd /app/libiec61850-repo && make WITH_MBEDTLS3=1 INSTALL_PREFIX=/build/linux_amd64 install"
+    command: sh -c "mkdir -p /build/linux_amd64 && cd /app/libiec61850-repo && make WITH_MBEDTLS=1 INSTALL_PREFIX=/build/linux_amd64 install"
