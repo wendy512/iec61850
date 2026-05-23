@@ -295,6 +295,7 @@ func (c *Client) connect(settings Settings, tlsConfig *TLSConfig) error {
 		if c.tlsConfig != nil {
 			C.TLSConfiguration_destroy(c.tlsConfig)
 		}
+		C.IedConnection_destroy(conn)
 		return err
 	}
 
