@@ -172,12 +172,11 @@ func (c *Client) InstallReportHandler(objectReference string, function ReportCal
 	defer C.ClientReportControlBlock_destroy(rcb)
 
 	callbackId := callbackIdGen.Add(1)
-	cPtr := intToPointerBug58625(callbackId)
 	reportCallbacks.Store(callbackId, &reportCallbackHandler{
 		handler: function,
 	})
 
-	C.IedConnection_installReportHandler(c.conn, cObjectRef, C.ClientReportControlBlock_getRptId(rcb), (*[0]byte)(C.reportCallbackFunctionBridge), cPtr)
+	C.IedConnection_installReportHandler(c.conn, cObjectRef, C.ClientReportControlBlock_getRptId(rcb), (*[0]byte)(C.reportCallbackFunctionBridge), intToPointerBug58625(callbackId))
 
 	return nil
 }
