@@ -12,6 +12,8 @@ extern MmsDataAccessError writeAccessHandlerBridge(DataAttribute* dataAttribute,
 
 extern ControlHandlerResult controlHandlerBridge(ControlAction action, void* parameter, MmsValue* ctlVal, bool test);
 
+extern CheckHandlerResult performCheckHandlerBridge(ControlAction action, void* parameter, MmsValue* ctlVal, bool test, bool interlockCheck);
+
 extern bool acseAuthenticatorBridge(void* parameter, AcseAuthenticationParameter authParameter, void** securityToken, IsoApplicationReference* appReference);
 
 static Buffer AcseAuthenticationParameter_GetBuffer(AcseAuthenticationParameter authParameter) {
@@ -37,9 +39,10 @@ import (
 )
 
 var (
-	callbackIdGen        = atomic.Int32{}
-	writeAccessCallbacks sync.Map
-	controlCallbacks     sync.Map
+	callbackIdGen         = atomic.Int32{}
+	writeAccessCallbacks  sync.Map
+	controlCallbacks      sync.Map
+	performCheckCallbacks sync.Map
 )
 
 type writeAccessCallback struct {
@@ -52,6 +55,11 @@ type controlCallback struct {
 	handler ControlHandler
 }
 
+type performCheckCallback struct {
+	node    *ModelNode
+	handler PerformCheckHandler
+}
+
 type ControlAction struct {
 	ControlTime    uint64
 	IsSelect       bool
@@ -60,6 +68,8 @@ type ControlAction struct {
 	CtlNum         int
 	OrIdent        []byte
 	OrCat          int
+
+	_action unsafe.Pointer // C.ControlAction; valid only during a handler callback (used by SetAddCause)
 }
 
 type IsoApplicationReference struct {
@@ -76,6 +86,8 @@ type AcseAuthenticationParameter struct {
 type WriteAccessHandler func(node *ModelNode, mmsValue *MmsValue) MmsDataAccessError
 
 type ControlHandler func(node *ModelNode, action *ControlAction, mmsValue *MmsValue, test bool) ControlHandlerResult
+
+type PerformCheckHandler func(node *ModelNode, action *ControlAction, mmsValue *MmsValue, test bool, interlockCheck bool) CheckHandlerResult
 
 type ClientAuthenticator func(securityToken *unsafe.Pointer, authParameter *AcseAuthenticationParameter, appReference *IsoApplicationReference) bool
 
@@ -137,6 +149,45 @@ func controlHandlerBridge(action C.ControlAction, parameter unsafe.Pointer, ctlV
 		}
 	}
 	return C.CONTROL_RESULT_FAILED
+}
+
+//export performCheckHandlerBridge
+func performCheckHandlerBridge(action C.ControlAction, parameter unsafe.Pointer, ctlVal *C.MmsValue, test C.bool, interlockCheck C.bool) C.CheckHandlerResult {
+	callbackId := int32(uintptr(parameter))
+	if val, ok := performCheckCallbacks.Load(callbackId); ok {
+		if call, ok := val.(*performCheckCallback); ok {
+
+			mmsType := MmsType(C.MmsValue_getType(ctlVal))
+			if goValue, err := toGoValue(ctlVal, mmsType); err == nil {
+
+				var (
+					orIdentSize C.int
+					orIdent     []byte
+				)
+
+				orIdentBuffer := C.ControlAction_getOrIdent(action, (*C.int)(unsafe.Pointer(&orIdentSize)))
+				if orIdentBuffer != nil {
+					size := int(orIdentSize)
+					orIdent = C.GoBytes(unsafe.Pointer(orIdentBuffer), C.int(size))
+				}
+
+				actionFill := &ControlAction{
+					ControlTime:    uint64(C.ControlAction_getControlTime(action)),
+					IsSelect:       bool(C.ControlAction_isSelect(action)),
+					InterlockCheck: bool(C.ControlAction_getInterlockCheck(action)),
+					SynchroCheck:   bool(C.ControlAction_getSynchroCheck(action)),
+					CtlNum:         int(C.ControlAction_getCtlNum(action)),
+					OrIdent:        orIdent,
+					OrCat:          int(C.ControlAction_getOrCat(action)),
+					_action:        unsafe.Pointer(action),
+				}
+
+				checkResult := call.handler(call.node, actionFill, &MmsValue{mmsType, goValue}, bool(test), bool(interlockCheck))
+				return C.CheckHandlerResult(checkResult)
+			}
+		}
+	}
+	return C.CONTROL_TEMPORARILY_UNAVAILABLE
 }
 
 //export acseAuthenticatorBridge
@@ -203,6 +254,28 @@ func (is *IedServer) SetControlHandler(modelNode *ModelNode, handler ControlHand
 
 	// intToPointerBug58625 must be inlined at the C call: storing the fake unsafe.Pointer in a local would let Go 1.26's stack scanner reject it.
 	C.IedServer_setControlHandler(is.server, (*C.DataObject)(modelNode._modelNode), (*[0]byte)(C.controlHandlerBridge), intToPointerBug58625(callbackId))
+}
+
+func (a *ControlAction) SetAddCause(addCause ControlAddCause) {
+	if a == nil || a._action == nil {
+		return
+	}
+	C.ControlAction_setAddCause(C.ControlAction(a._action), C.ControlAddCause(addCause))
+}
+
+func (is *IedServer) SetPerformCheckHandler(modelNode *ModelNode, handler PerformCheckHandler) {
+	if modelNode == nil {
+		return
+	}
+
+	callbackId := callbackIdGen.Add(1)
+	performCheckCallbacks.Store(callbackId, &performCheckCallback{
+		node:    modelNode,
+		handler: handler,
+	})
+
+	// intToPointerBug58625 must be inlined at the C call: storing the fake unsafe.Pointer in a local would let Go 1.26's stack scanner reject it.
+	C.IedServer_setPerformCheckHandler(is.server, (*C.DataObject)(modelNode._modelNode), (*[0]byte)(C.performCheckHandlerBridge), intToPointerBug58625(callbackId))
 }
 
 // intToPointerBug58625 is a helper function to fix issue #58625 in Go | https://github.com/golang/go/issues/58625
