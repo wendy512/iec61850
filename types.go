@@ -63,6 +63,51 @@ const (
 	CONTROL_RESULT_WAITING
 )
 
+type CheckHandlerResult int
+
+const (
+	CONTROL_ACCEPTED                CheckHandlerResult = -1
+	CONTROL_WAITING_FOR_SELECT      CheckHandlerResult = 0
+	CONTROL_HARDWARE_FAULT          CheckHandlerResult = 1
+	CONTROL_TEMPORARILY_UNAVAILABLE CheckHandlerResult = 2
+	CONTROL_OBJECT_ACCESS_DENIED    CheckHandlerResult = 3
+	CONTROL_OBJECT_UNDEFINED        CheckHandlerResult = 4
+	CONTROL_VALUE_INVALID           CheckHandlerResult = 11
+)
+
+type ControlAddCause int
+
+const (
+	ADD_CAUSE_UNKNOWN                        ControlAddCause = 0
+	ADD_CAUSE_NOT_SUPPORTED                  ControlAddCause = 1
+	ADD_CAUSE_BLOCKED_BY_SWITCHING_HIERARCHY ControlAddCause = 2
+	ADD_CAUSE_SELECT_FAILED                  ControlAddCause = 3
+	ADD_CAUSE_INVALID_POSITION               ControlAddCause = 4
+	ADD_CAUSE_POSITION_REACHED               ControlAddCause = 5
+	ADD_CAUSE_PARAMETER_CHANGE_IN_EXECUTION  ControlAddCause = 6
+	ADD_CAUSE_STEP_LIMIT                     ControlAddCause = 7
+	ADD_CAUSE_BLOCKED_BY_MODE                ControlAddCause = 8
+	ADD_CAUSE_BLOCKED_BY_PROCESS             ControlAddCause = 9
+	ADD_CAUSE_BLOCKED_BY_INTERLOCKING        ControlAddCause = 10
+	ADD_CAUSE_BLOCKED_BY_SYNCHROCHECK        ControlAddCause = 11
+	ADD_CAUSE_COMMAND_ALREADY_IN_EXECUTION   ControlAddCause = 12
+	ADD_CAUSE_BLOCKED_BY_HEALTH              ControlAddCause = 13
+	ADD_CAUSE_1_OF_N_CONTROL                 ControlAddCause = 14
+	ADD_CAUSE_ABORTION_BY_CANCEL             ControlAddCause = 15
+	ADD_CAUSE_TIME_LIMIT_OVER                ControlAddCause = 16
+	ADD_CAUSE_ABORTION_BY_TRIP               ControlAddCause = 17
+	ADD_CAUSE_OBJECT_NOT_SELECTED            ControlAddCause = 18
+	ADD_CAUSE_OBJECT_ALREADY_SELECTED        ControlAddCause = 19
+	ADD_CAUSE_NO_ACCESS_AUTHORITY            ControlAddCause = 20
+	ADD_CAUSE_ENDED_WITH_OVERSHOOT           ControlAddCause = 21
+	ADD_CAUSE_ABORTION_DUE_TO_DEVIATION      ControlAddCause = 22
+	ADD_CAUSE_ABORTION_BY_COMMUNICATION_LOSS ControlAddCause = 23
+	ADD_CAUSE_ABORTION_BY_COMMAND            ControlAddCause = 24
+	ADD_CAUSE_NONE                           ControlAddCause = 25
+	ADD_CAUSE_INCONSISTENT_PARAMETERS        ControlAddCause = 26
+	ADD_CAUSE_LOCKED_BY_OTHER_CLIENT         ControlAddCause = 27
+)
+
 type ControlModel int
 
 const (
