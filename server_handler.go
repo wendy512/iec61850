@@ -69,7 +69,7 @@ type ControlAction struct {
 	OrIdent        []byte
 	OrCat          int
 
-	_action unsafe.Pointer // C.ControlAction; valid only during a handler callback (used by SetAddCause)
+	_action unsafe.Pointer // C.ControlAction; valid only during a handler callback (used by SetAddCause and GetT)
 }
 
 type IsoApplicationReference struct {
@@ -141,6 +141,7 @@ func controlHandlerBridge(action C.ControlAction, parameter unsafe.Pointer, ctlV
 					CtlNum:         int(C.ControlAction_getCtlNum(action)),
 					OrIdent:        orIdent,
 					OrCat:          int(C.ControlAction_getOrCat(action)),
+					_action:        unsafe.Pointer(action),
 				}
 
 				controlHandlerResult := call.handler(call.node, actionFill, &MmsValue{mmsType, goValue}, bool(test))
@@ -261,6 +262,15 @@ func (a *ControlAction) SetAddCause(addCause ControlAddCause) {
 		return
 	}
 	C.ControlAction_setAddCause(C.ControlAction(a._action), C.ControlAddCause(addCause))
+}
+
+func (a *ControlAction) GetT() *Timestamp {
+	if a == nil || a._action == nil {
+		return nil
+	}
+	return &Timestamp{
+		cTimestamp: C.Timestamp(*C.ControlAction_getT(C.ControlAction(a._action))),
+	}
 }
 
 func (is *IedServer) SetPerformCheckHandler(modelNode *ModelNode, handler PerformCheckHandler) {
