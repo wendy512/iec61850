@@ -38,6 +38,99 @@ func (m *IedModel) Destroy() {
 	C.IedModel_destroy(m.Model)
 }
 
+// IedName returns the IED name.
+func (m *IedModel) IedName() string {
+	if m == nil || m.Model == nil {
+		return ""
+	}
+	// sIedModel.name is the first field.
+	namePtr := *(**C.char)(unsafe.Pointer(m.Model))
+	if namePtr == nil {
+		return ""
+	}
+	return C.GoString(namePtr)
+}
+
+// LogicalDeviceCount returns the number of logical devices in the model.
+func (m *IedModel) LogicalDeviceCount() int {
+	if m == nil || m.Model == nil {
+		return 0
+	}
+	return int(C.IedModel_getLogicalDeviceCount(m.Model))
+}
+
+// GetLogicalDeviceByIndex returns the logical device at index, or nil.
+func (m *IedModel) GetLogicalDeviceByIndex(index int) *LogicalDevice {
+	if m == nil || m.Model == nil {
+		return nil
+	}
+	if index < 0 || index >= m.LogicalDeviceCount() {
+		return nil
+	}
+	ld := C.IedModel_getDeviceByIndex(m.Model, C.int(index))
+	if ld == nil {
+		return nil
+	}
+	return &LogicalDevice{device: ld}
+}
+
+// Name returns the logical device instance name.
+func (d *LogicalDevice) Name() string {
+	if d == nil || d.device == nil {
+		return ""
+	}
+	name := C.ModelNode_getName((*C.ModelNode)(unsafe.Pointer(d.device)))
+	if name == nil {
+		return ""
+	}
+	return C.GoString(name)
+}
+
+// LdName returns the functional logical device name, if set.
+func (d *LogicalDevice) LdName() string {
+	if d == nil || d.device == nil {
+		return ""
+	}
+	ldNamePtr := d.device.ldName
+	if ldNamePtr == nil {
+		return ""
+	}
+	return C.GoString(ldNamePtr)
+}
+
+// LogicalNodeCount returns the number of logical nodes in this logical device.
+func (d *LogicalDevice) LogicalNodeCount() int {
+	if d == nil || d.device == nil {
+		return 0
+	}
+	return int(C.LogicalDevice_getLogicalNodeCount(d.device))
+}
+
+// LogicalNodes returns the logical nodes in model order.
+func (d *LogicalDevice) LogicalNodes() []*LogicalNode {
+	if d == nil || d.device == nil {
+		return nil
+	}
+	var nodes []*LogicalNode
+	// firstChild and sibling are ModelNode pointers.
+	for child := (*C.LogicalNode)(unsafe.Pointer(d.device.firstChild)); child != nil; child = (*C.LogicalNode)(unsafe.Pointer(child.sibling)) {
+		nodes = append(nodes, &LogicalNode{node: child})
+	}
+	return nodes
+}
+
+// Name returns the logical node name.
+func (n *LogicalNode) Name() string {
+	if n == nil || n.node == nil {
+		return ""
+	}
+	name := C.ModelNode_getName((*C.ModelNode)(unsafe.Pointer(n.node)))
+	if name == nil {
+		return ""
+	}
+	return C.GoString(name)
+}
+
 func (m *IedModel) GetModelNodeByObjectReference(objectRef string) *ModelNode {
 	cObjectRef := C.CString(objectRef)
 	defer C.free(unsafe.Pointer(cObjectRef))
