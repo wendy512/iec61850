@@ -76,6 +76,22 @@ func (is *IedServer) UnlockDataModel() {
 	C.IedServer_unlockDataModel(is.server)
 }
 
+// UpdateAttributeValue updates a DataAttribute with an MMS value.
+func (is *IedServer) UpdateAttributeValue(node *ModelNode, value *MmsValue) error {
+	if node == nil || node._modelNode == nil || value == nil {
+		return nil
+	}
+
+	mmsValue, err := toMmsValue(value.Type, value.Value)
+	if err != nil {
+		return err
+	}
+	defer C.MmsValue_delete(mmsValue)
+
+	C.IedServer_updateAttributeValue(is.server, (*C.DataAttribute)(node._modelNode), mmsValue)
+	return nil
+}
+
 // UpdateUTCTimeAttributeValue updates a DataAttribute with a UTC time value.
 func (is *IedServer) UpdateUTCTimeAttributeValue(node *ModelNode, value int64) {
 	if node == nil || node._modelNode == nil {
