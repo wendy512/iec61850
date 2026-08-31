@@ -16,6 +16,8 @@ extern CheckHandlerResult performCheckHandlerBridge(ControlAction action, void* 
 
 extern bool acseAuthenticatorBridge(void* parameter, AcseAuthenticationParameter authParameter, void** securityToken, IsoApplicationReference* appReference);
 
+extern void connectionIndicationBridge(IedServer server, ClientConnection connection, bool connected, void* parameter);
+
 static Buffer AcseAuthenticationParameter_GetBuffer(AcseAuthenticationParameter authParameter) {
     if (authParameter->mechanism == ACSE_AUTH_PASSWORD) {
         uint8_t *buf = authParameter->value.password.octetString;
@@ -43,6 +45,7 @@ var (
 	writeAccessCallbacks  sync.Map
 	controlCallbacks      sync.Map
 	performCheckCallbacks sync.Map
+	connectionCallbacks   sync.Map
 )
 
 type writeAccessCallback struct {
@@ -58,6 +61,10 @@ type controlCallback struct {
 type performCheckCallback struct {
 	node    *ModelNode
 	handler PerformCheckHandler
+}
+
+type connectionCallback struct {
+	handler ConnectionHandler
 }
 
 type ControlAction struct {
@@ -90,6 +97,44 @@ type ControlHandler func(node *ModelNode, action *ControlAction, mmsValue *MmsVa
 type PerformCheckHandler func(node *ModelNode, action *ControlAction, mmsValue *MmsValue, test bool, interlockCheck bool) CheckHandlerResult
 
 type ClientAuthenticator func(securityToken *unsafe.Pointer, authParameter *AcseAuthenticationParameter, appReference *IsoApplicationReference) bool
+
+type ConnectionHandler func(connection *ClientConnection, connected bool)
+
+type ClientConnection struct {
+	connection C.ClientConnection
+}
+
+func (c *ClientConnection) GetPeerAddress() string {
+	if c == nil || c.connection == nil {
+		return ""
+	}
+
+	return C.GoString(C.ClientConnection_getPeerAddress(c.connection))
+}
+
+func (c *ClientConnection) Abort() bool {
+	if c == nil || c.connection == nil {
+		return false
+	}
+
+	return bool(C.ClientConnection_abort(c.connection))
+}
+
+func (c *ClientConnection) ClaimOwnership() *ClientConnection {
+	if c == nil || c.connection == nil {
+		return c
+	}
+
+	return &ClientConnection{connection: C.ClientConnection_claimOwnership(c.connection)}
+}
+
+func (c *ClientConnection) Release() {
+	if c == nil || c.connection == nil {
+		return
+	}
+
+	C.ClientConnection_release(c.connection)
+}
 
 //export writeAccessHandlerBridge
 func writeAccessHandlerBridge(dataAttribute *C.DataAttribute, value *C.MmsValue, connection C.ClientConnection, parameter unsafe.Pointer) C.MmsDataAccessError {
@@ -227,6 +272,16 @@ func acseAuthenticatorBridge(parameter unsafe.Pointer, authParameter C.AcseAuthe
 	return C.bool(result)
 }
 
+//export connectionIndicationBridge
+func connectionIndicationBridge(_ C.IedServer, connection C.ClientConnection, connected C.bool, parameter unsafe.Pointer) {
+	callbackId := int32(uintptr(parameter))
+	if val, ok := connectionCallbacks.Load(callbackId); ok {
+		if call, ok := val.(*connectionCallback); ok {
+			call.handler(&ClientConnection{connection: connection}, bool(connected))
+		}
+	}
+}
+
 func (is *IedServer) SetHandleWriteAccess(modelNode *ModelNode, handler WriteAccessHandler) {
 	if modelNode == nil {
 		return
@@ -286,6 +341,18 @@ func (is *IedServer) SetPerformCheckHandler(modelNode *ModelNode, handler Perfor
 
 	// intToPointerBug58625 must be inlined at the C call: storing the fake unsafe.Pointer in a local would let Go 1.26's stack scanner reject it.
 	C.IedServer_setPerformCheckHandler(is.server, (*C.DataObject)(modelNode._modelNode), (*[0]byte)(C.performCheckHandlerBridge), intToPointerBug58625(callbackId))
+}
+
+// SetConnectionHandler registers a callback that is invoked when a client connects or disconnects.
+// See ClientConnection for the connection operations available inside the callback.
+func (is *IedServer) SetConnectionHandler(handler ConnectionHandler) {
+	callbackId := callbackIdGen.Add(1)
+	connectionCallbacks.Store(callbackId, &connectionCallback{
+		handler: handler,
+	})
+
+	// intToPointerBug58625 must be inlined at the C call: storing the fake unsafe.Pointer in a local would let Go 1.26's stack scanner reject it.
+	C.IedServer_setConnectionIndicationHandler(is.server, (*[0]byte)(C.connectionIndicationBridge), intToPointerBug58625(callbackId))
 }
 
 // intToPointerBug58625 is a helper function to fix issue #58625 in Go | https://github.com/golang/go/issues/58625
