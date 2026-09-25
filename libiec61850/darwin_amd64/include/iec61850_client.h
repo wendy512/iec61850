@@ -483,7 +483,7 @@ IedConnection_getLastApplError(IedConnection self);
  *
  * \note Do not call any connection management functions (e.g. \ref IedConnection_connect, \ref IedConnection_abort, etc.)
  *       or remote service invocation functions from within this callback as it might deadlock.
- *
+ * 
  * \param user provided parameter
  * \param connection the connection object of the closed connection
  */

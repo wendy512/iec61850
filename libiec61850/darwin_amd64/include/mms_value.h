@@ -505,7 +505,7 @@ MmsValue_setUtcTimeQuality(MmsValue* self, uint8_t timeQuality);
 
 /**
  * \brief Update an MmsValue object of type MMS_UTCTIME with a millisecond time.
- *
+ * 
  * Meaning of the bits in the timeQuality byte:
  *
  * bit 7 = leapSecondsKnown
@@ -516,7 +516,7 @@ MmsValue_setUtcTimeQuality(MmsValue* self, uint8_t timeQuality);
  * \param self MmsValue instance to operate on. Has to be of a type MMS_UTCTIME.
  * \param timeval the new value in milliseconds since epoch (1970/01/01 00:00 UTC)
  * \param timeQuality the byte representing the time quality
- *
+ * 
  * \return the updated MmsValue instance
  */
 LIB61850_API MmsValue*
