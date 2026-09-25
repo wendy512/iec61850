@@ -1,7 +1,7 @@
 /*
  *  iec61850_client.h
  *
- *  Copyright 2013-2023 Michael Zillgith
+ *  Copyright 2013-2026 Michael Zillgith
  *
  *  This file is part of libIEC61850.
  *
@@ -277,6 +277,15 @@ LIB61850_API void
 IedConnection_setMaxOutstandingCalls(IedConnection self, int calling, int called);
 
 /**
+ * \brief Set or update the TLS configuration for an IedConnection instance
+ *
+ * \param self IedConnection instance to operate on
+ * \param tlsConfig the TLS configuration to use
+ */
+LIB61850_API void
+IedConnection_setTLSConfiguration(IedConnection self, TLSConfiguration tlsConfig);
+
+/**
  * \brief set the request timeout in ms
  *
  * Set the request timeout for this connection. You can call this function any time to adjust
@@ -469,6 +478,12 @@ IedConnection_getLastApplError(IedConnection self);
  *
  * \deprecated Use \ref IedConnection_StateChangedHandler instead
  *
+ * \note This callback is invoked while an internal state mutex is held. Do NOT call
+ *       \ref IedConnection_getState from within this callback as it will deadlock.
+ *
+ * \note Do not call any connection management functions (e.g. \ref IedConnection_connect, \ref IedConnection_abort, etc.)
+ *       or remote service invocation functions from within this callback as it might deadlock.
+ * 
  * \param user provided parameter
  * \param connection the connection object of the closed connection
  */
@@ -490,6 +505,13 @@ IedConnection_installConnectionClosedHandler(IedConnection self, IedConnectionCl
 
 /**
  * \brief Callback handler that is invoked whenever the connection state (\ref IedConnectionState) changes
+ *
+ * \note This callback is invoked while an internal state mutex is held. Do NOT call
+ *       \ref IedConnection_getState from within this callback as it will deadlock.
+ *
+ * \note In multi-threaded mode, do NOT call synchronous (blocking) IedConnection API
+ *       functions from within this callback. The connection thread is blocked executing
+ *       this callback, so any call waiting for a server response will deadlock.
  *
  * \param user provided parameter
  * \param connection the related connection
@@ -1319,6 +1341,18 @@ IedConnection_setRCBValuesAsync(IedConnection self, IedClientError* error, Clien
 
 /**
  * \brief Callback function for receiving reports
+ *
+ * \note This callback is invoked from the message reception thread while an internal
+ *       report handler mutex is held. Do NOT call \ref IedConnection_installReportHandler
+ *       or \ref IedConnection_uninstallReportHandler from within this callback (deadlock).
+ *
+ * \note In multi-threaded mode, do NOT call any synchronous (blocking) IedConnection API
+ *       functions (e.g. \ref IedConnection_readObject, \ref IedConnection_writeObject) from
+ *       within this callback. Because the reception thread is executing this callback, no
+ *       response from the server can be received, causing a permanent deadlock. Use the
+ *       asynchronous variants (e.g. \ref IedConnection_readObjectAsync) instead, or preferably
+ *       avoid calling any IedConnection API functions that invoke a remote service from within
+ *       this callback.
  *
  * \param parameter a user provided parameter that is handed to the callback function
  * \param report a ClientReport instance that holds the informations contained in the received report

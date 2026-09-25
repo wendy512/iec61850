@@ -121,7 +121,7 @@ LogicalNode_create(const char* name, LogicalDevice* parent);
  * \brief create a new data object or array data object and add it to a parent model node
  *
  * The parent model node has to be of type DataObject or LogicalNode.
- *
+ * 
  * NOTE: When the data object is an array the array elements will also be created by this function.
  * This will result in child DataObject instances for each array element.
  *
@@ -185,7 +185,7 @@ DataAttribute_getTrgOps(DataAttribute* self);
 
 /**
  * \brief Set the value of the data attribute (can be used to set default values before server is created)
- *
+ * 
  * \param self the data attribute instance
  * \param value the new default value
  */

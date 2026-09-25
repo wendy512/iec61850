@@ -3,7 +3,7 @@
  *
  *  IEC 61850 server API for libiec61850.
  *
- *  Copyright 2013-2024 Michael Zillgith
+ *  Copyright 2013-2025 Michael Zillgith
  *
  *  This file is part of libIEC61850.
  *
@@ -515,6 +515,17 @@ LIB61850_API void
 IedServer_setLocalIpAddress(IedServer self, const char* localIpAddress);
 
 /**
+ * \brief Update the TLS configuration for the server.
+ *
+ * \note This will be applied to all new connections. Already established connections will not be affected.
+ *
+ * \param self the IedServer instance
+ * \param tlsConfiguration the new TLS configuration to use for new connections (or NULL to disable TLS for new connections)
+ */
+LIB61850_API void
+IedServer_setTLSConfiguration(IedServer self, TLSConfiguration tlsConfiguration);
+
+/**
  * \brief Set the identify for the MMS identify service
  *
  * CONFIG_IEC61850_SUPPORT_SERVER_IDENTITY required
@@ -541,6 +552,15 @@ LIB61850_API void
 IedServer_setFilestoreBasepath(IedServer self, const char* basepath);
 
 /**
+ * \brief Set the request timeout for the server (used for obtain file service)
+ *
+ * \param self the IedServer instance to operate on
+ * \param timeoutMs the timeout value in milliseconds
+ */
+LIB61850_API void
+IedServer_setRequestTimeout(IedServer self, int32_t timeoutMs);
+
+/**
  * \brief Assign a \ref LogStorage instance to a log reference
  *
  * \note configuration option CONFIG_IEC61850_LOG_SERVICE is required
@@ -563,6 +583,12 @@ IedServer_start(IedServer self, int tcpPort);
 
 /**
  * \brief Stop handling client connections
+ *
+ * \note This function MUST NOT be called from within any server-side callback. It joins
+ *       the connection handling thread and the event worker thread; calling it from either
+ *       of those threads (i.e. from any callback) will deadlock. To stop the server in
+ *       response to a server event, set a flag inside the callback and call this function
+ *       from the application's main thread instead.
  *
  * \param self the instance of IedServer to operate on.
  */
@@ -699,6 +725,38 @@ IedServer_enableGoosePublishing(IedServer self);
  */
 LIB61850_API void
 IedServer_disableGoosePublishing(IedServer self);
+
+/**
+ * \brief Enable GOOSE publishing and start the event worker thread without starting the MMS server.
+ *
+ * This allows the integrated GOOSE publisher to operate in a standalone mode where no
+ * MMS/TCP server is required. All configured GOOSE control blocks are enabled and a
+ * background thread is started to drive periodic GOOSE retransmissions.
+ *
+ * Call \ref IedServer_stopGoosePublishing to stop GOOSE operation and release the thread.
+ *
+ * \note This function has no effect when CONFIG_INCLUDE_GOOSE_SUPPORT is not set.
+ * \note This function has no effect when CONFIG_MMS_THREADLESS_STACK is set; in that case
+ *       call \ref IedServer_enableGoosePublishing and drive the periodic tasks manually via
+ *       \ref IedServer_performPeriodicTasks.
+ *
+ * \param self the instance of IedServer to operate on.
+ */
+LIB61850_API void
+IedServer_startGoosePublishing(IedServer self);
+
+/**
+ * \brief Stop GOOSE-only publishing and disable all GOOSE control blocks.
+ *
+ * Stops the event worker thread that was started by \ref IedServer_startGoosePublishing
+ * and disables all configured GOOSE control blocks.
+ *
+ * \note This function has no effect when CONFIG_INCLUDE_GOOSE_SUPPORT is not set.
+ *
+ * \param self the instance of IedServer to operate on.
+ */
+LIB61850_API void
+IedServer_stopGoosePublishing(IedServer self);
 
 /**
  * \brief Set the Ethernet interface to be used by GOOSE publishing
@@ -867,6 +925,13 @@ ClientConnection_release(ClientConnection self);
  * \brief User provided callback function that is invoked whenever a new client connects or an existing connection is closed
  *        or detected as lost.
  *
+ * \note This callback is invoked from the connection handling thread without holding the MMS
+ *       model lock. It is safe to call \ref IedServer_lockDataModel /
+ *       \ref IedServer_unlockDataModel and all IedServer_update* functions from within
+ *       this handler.
+ *
+ * \note Do NOT call \ref IedServer_stop from within this handler as it will deadlock.
+ *
  * \param self the instance of IedServer where the connection event occured.
  * \param connection the new or closed client connect object
  * \param connected true if a new connection is indicated, false if the connection has been closed or detected as lost.
@@ -912,9 +977,23 @@ IedServer_ignoreClientRequests(IedServer self, bool enable);
  * After updating the data model the function \ref IedServer_unlockDataModel should be called.
  * Client requests will be postponed until the lock is removed.
  *
- * NOTE: This method should never be called inside of a library callback function. In the context of
- * a library callback the data model is always already locked! Calling this function inside of a
- * library callback may lead to a deadlock condition.
+ * \note This function MUST NOT be called from MMS service callbacks: WriteAccessHandler,
+ *       ReadAccessHandler, GoCBEventHandler, SVCBEventHandler, IedServer_RCBEventHandler
+ *       (for write-triggered events), IedServer_DataSetAccessHandler,
+ *       IedServer_DirectoryAccessHandler, IedServer_ListObjectsAccessHandler,
+ *       IedServer_ControlBlockAccessHandler, ActiveSettingGroupChangedHandler,
+ *       EditSettingGroupChangedHandler, and EditSettingGroupConfirmationHandler.
+ *       In all those callbacks the internal MMS model lock is already held; attempting
+ *       to acquire it again will cause a deadlock.
+ *
+ * \note This function IS safe to call from control service callbacks
+ *       (ControlHandler, ControlPerformCheckHandler, ControlWaitForExecutionHandler,
+ *       ControlSelectStateChangedHandler) and from IedConnectionIndicationHandler,
+ *       as those are invoked without holding the MMS model lock.
+ *
+ * \note The IedServer_update* family of functions (e.g.
+ *       \ref IedServer_updateBooleanAttributeValue) is always safe to call from any
+ *       server callback because it uses a separate internal lock.
  *
  * \param self the instance of IedServer to operate on.
  */
@@ -924,8 +1003,8 @@ IedServer_lockDataModel(IedServer self);
 /**
  * \brief Unlock the data model and process pending client requests.
  *
- * NOTE: This method should never be called inside of a library callback function. In the context of
- * a library callback the data model is always already locked!
+ * \note This function MUST NOT be called from MMS service callbacks. See
+ *       \ref IedServer_lockDataModel for the full list of affected callbacks.
  *
  * \param self the instance of IedServer to operate on.
  */
@@ -1308,6 +1387,13 @@ IedServer_getActiveSettingGroup(IedServer self, SettingGroupControlBlock* sgcb);
  * This function is called BEFORE the active setting group is changed. The user can reject to change the
  * active setting group by returning false.
  *
+ * \note This callback is invoked from the MMS connection handling thread while the internal
+ *       MMS model lock is held. Do NOT call \ref IedServer_lockDataModel or
+ *       \ref IedServer_unlockDataModel from within this handler (deadlock). The
+ *       IedServer_update* functions are safe to call.
+ *
+ * \note Do NOT call \ref IedServer_stop from within this handler.
+ *
  * \param user provided parameter
  * \param sgcb the setting group control block of the setting group that is about to be changed
  * \param newActSg the new active setting group
@@ -1340,6 +1426,13 @@ IedServer_setActiveSettingGroupChangedHandler(IedServer self, SettingGroupContro
  * This function is called BEFORE the active setting group is changed. The user can reject to change the
  * edit setting group by returning false. This can be used to implement RBAC.
  *
+ * \note This callback is invoked from the MMS connection handling thread while the internal
+ *       MMS model lock is held. Do NOT call \ref IedServer_lockDataModel or
+ *       \ref IedServer_unlockDataModel from within this handler (deadlock). The
+ *       IedServer_update* functions are safe to call.
+ *
+ * \note Do NOT call \ref IedServer_stop from within this handler.
+ *
  * \param user provided parameter
  * \param sgcb the setting group control block of the setting group that is about to be changed
  * \param newEditSg the new edit setting group
@@ -1366,6 +1459,13 @@ IedServer_setEditSettingGroupChangedHandler(IedServer self, SettingGroupControlB
 /**
  * \brief Callback handler that is invoked when the edit setting group has been confirmed by an
  *        external client.
+ *
+ * \note This callback is invoked from the MMS connection handling thread while the internal
+ *       MMS model lock is held. Do NOT call \ref IedServer_lockDataModel or
+ *       \ref IedServer_unlockDataModel from within this handler (deadlock). The
+ *       IedServer_update* functions are safe to call.
+ *
+ * \note Do NOT call \ref IedServer_stop from within this handler.
  *
  * \param user provided parameter
  * \param sgcb the setting group control block of the setting group that is about to be changed
@@ -1524,7 +1624,7 @@ ControlAction_getControlObject(ControlAction self);
  *
  * \param self the control action instance
  *
- * \return the controllable data object instance
+ * \return the execution time of the control action in ms since Epoch or 0 if it's not a time activated control
  */
 LIB61850_API uint64_t
 ControlAction_getControlTime(ControlAction self);
@@ -1534,7 +1634,7 @@ ControlAction_getControlTime(ControlAction self);
  *
  * \param self the control action instance
  *
- * \return the time of the last received control action
+ * \return the time of the last received control action in ms since Epoch
  */
 LIB61850_API Timestamp*
 ControlAction_getT(ControlAction self);
@@ -1550,6 +1650,12 @@ ControlAction_getT(ControlAction self);
  * are met if the interlockCheck parameter is true.
  * This handler can also be check if the client has the required permissions to execute the
  * operation and allow or deny the operation accordingly.
+ *
+ * \note This callback is invoked from the event worker thread without holding the MMS model
+ *       lock. It is safe to call \ref IedServer_lockDataModel / \ref IedServer_unlockDataModel
+ *       and all IedServer_update* functions from within this handler.
+ *
+ * \note Do NOT call \ref IedServer_stop from within this handler.
  *
  * \param action the control action parameter that provides access to additional context information
  * \param parameter the parameter that was specified when setting the control handler
@@ -1575,6 +1681,12 @@ typedef CheckHandlerResult (*ControlPerformCheckHandler) (ControlAction action, 
  * cannot be performed immediately the function SHOULD return CONTROL_RESULT_WAITING and the
  * handler will be invoked again later.
  *
+ * \note This callback is invoked from the event worker thread without holding the MMS model
+ *       lock. It is safe to call \ref IedServer_lockDataModel / \ref IedServer_unlockDataModel
+ *       and all IedServer_update* functions from within this handler.
+ *
+ * \note Do NOT call \ref IedServer_stop from within this handler.
+ *
  * \param action the control action parameter that provides access to additional context information
  * \param parameter the parameter that was specified when setting the control handler
  * \param ctlVal the control value of the control operation.
@@ -1598,6 +1710,12 @@ typedef ControlHandlerResult (*ControlWaitForExecutionHandler) (ControlAction ac
  * \note  Since version 0.7.9 this function is intended to return immediately. If the operation
  * cannot be performed immediately the function SHOULD return CONTROL_RESULT_WAITING and the
  * handler will be invoked again later.
+ *
+ * \note This callback is invoked from the event worker thread without holding the MMS model
+ *       lock. It is safe to call \ref IedServer_lockDataModel / \ref IedServer_unlockDataModel
+ *       and all IedServer_update* functions from within this handler.
+ *
+ * \note Do NOT call \ref IedServer_stop from within this handler.
  *
  * \param action the control action parameter that provides access to additional context information
  * \param parameter the parameter that was specified when setting the control handler
@@ -1625,6 +1743,12 @@ typedef enum {
  * \brief Control model callback that is called when the select state of a control changes
  *
  * \note New in version 1.5
+ *
+ * \note This callback is invoked from the event worker thread without holding the MMS model
+ *       lock. It is safe to call \ref IedServer_lockDataModel / \ref IedServer_unlockDataModel
+ *       and all IedServer_update* functions from within this handler.
+ *
+ * \note Do NOT call \ref IedServer_stop from within this handler.
  *
  * \param action the control action parameter that provides access to additional context information
  * \param parameter the parameter that was specified when setting the control handler
@@ -1741,6 +1865,24 @@ typedef enum {
 /**
  * \brief Callback that is called in case of RCB event
  *
+ * \note This callback can be invoked from multiple different threading contexts:
+ *       - Most write/read-triggered events (RCB_EVENT_GET_PARAMETER,
+ *         RCB_EVENT_SET_PARAMETER, RCB_EVENT_RESERVED, RCB_EVENT_ENABLE,
+ *         RCB_EVENT_GI, RCB_EVENT_PURGEBUF) are invoked from the MMS connection
+ *         handling thread while the internal MMS model lock IS held.
+ *       - RCB_EVENT_DISABLE may be invoked either from the write handler (model lock
+ *         held) or from the client-disconnect path (no model lock).
+ *       - RCB_EVENT_UNRESERVED is invoked from the event worker thread without
+ *         the MMS model lock.
+ *       - RCB_EVENT_OVERFLOW and RCB_EVENT_REPORT_CREATED are invoked from the
+ *         event worker thread or from within \ref IedServer_unlockDataModel; the
+ *         model lock may or may not be held.
+ *       Due to this mixed context, the safest rule is to never call
+ *       \ref IedServer_lockDataModel from this handler, regardless of the event type.
+ *       The IedServer_update* functions are safe to call in all contexts.
+ *
+ * \note Do NOT call \ref IedServer_stop from within this handler.
+ *
  * \param parameter user provided parameter
  * \param rcb affected report control block
  * \param connection client connection that is involved
@@ -1779,9 +1921,16 @@ IedServer_setRCBEventHandler(IedServer self, IedServer_RCBEventHandler handler, 
 /**
  * \brief callback handler for SVCB events.
  *
+ * \note This callback is invoked from the MMS connection handling thread while the internal
+ *       MMS model lock is held. Do NOT call \ref IedServer_lockDataModel or
+ *       \ref IedServer_unlockDataModel from within this handler (deadlock). The
+ *       IedServer_update* functions are safe to call.
+ *
+ * \note Do NOT call \ref IedServer_stop from within this handler.
+ *
  * \param svcb the related SVCB instance
- * \param the event type
- * \param user defined parameter
+ * \param event the event type (IEC61850_SVCB_EVENT_ENABLE or IEC61850_SVCB_EVENT_DISABLE)
+ * \param parameter user provided parameter
  */
 typedef void (*SVCBEventHandler) (SVControlBlock* svcb, int event, void* parameter);
 
@@ -1814,6 +1963,20 @@ typedef struct sMmsGooseControlBlock* MmsGooseControlBlock;
 /** Control block has been disabled by client */
 #define IEC61850_GOCB_EVENT_DISABLE 0
 
+/**
+ * \brief callback handler for GoCB events (GOOSE control block enabled/disabled).
+ *
+ * \note This callback is invoked from the MMS connection handling thread while the internal
+ *       MMS model lock is held. Do NOT call \ref IedServer_lockDataModel or
+ *       \ref IedServer_unlockDataModel from within this handler (deadlock). The
+ *       IedServer_update* functions are safe to call.
+ *
+ * \note Do NOT call \ref IedServer_stop from within this handler.
+ *
+ * \param goCb the related GoCB instance
+ * \param event the event type (IEC61850_GOCB_EVENT_ENABLE or IEC61850_GOCB_EVENT_DISABLE)
+ * \param parameter user provided parameter
+ */
 typedef void (*GoCBEventHandler) (MmsGooseControlBlock goCb, int event, void* parameter);
 
 /**
@@ -1877,7 +2040,7 @@ MmsGooseControlBlock_getNdsCom(MmsGooseControlBlock self);
  * User provided callback function to intercept/control MMS client access to
  * IEC 61850 data attributes. The application can install the same handler
  * multiple times and distinguish data attributes by the dataAttribute parameter.
- * This handler can be used to perform write access control do data attributes.
+ * This handler can be used to perform write access control of data attributes.
  * One application can be to allow write access only from a specific client. Another
  * application could be to check if the value is in the allowed range before the write
  * is accepted.
@@ -1886,8 +2049,15 @@ MmsGooseControlBlock_getNdsCom(MmsGooseControlBlock self);
  * When the callback returns DATA_ACCESS_ERROR_SUCCESS_NO_UPDATE the write access is accepted but the
  * stack will not update the value automatically.
  *
- * \param the data attribute that has been written by an MMS client.
- * \param the value the client want to write to the data attribute
+ * \note This callback is invoked while the internal MMS model lock is held. Do NOT call
+ *       \ref IedServer_lockDataModel or \ref IedServer_unlockDataModel from within this
+ *       handler as doing so will cause a deadlock. The IedServer_update* functions
+ *       (e.g. \ref IedServer_updateBooleanAttributeValue) are safe to call.
+ *
+ * \note Do NOT call \ref IedServer_stop from within this handler.
+ *
+ * \param dataAttribute the data attribute that has been written by an MMS client.
+ * \param value the value the client wants to write to the data attribute
  * \param connection the connection object of the client connection that invoked the write operation
  * \param parameter the user provided parameter
  *
@@ -1955,6 +2125,9 @@ IedServer_handleWriteAccessForComplexAttribute(IedServer self, DataAttribute* da
 LIB61850_API void
 IedServer_handleWriteAccessForDataObject(IedServer self, DataObject* dataObject, FunctionalConstraint fc, WriteAccessHandler handler, void* parameter);
 
+LIB61850_API void
+IedServer_handleWriteAccessGlobally(IedServer self, WriteAccessHandler handler, void* parameter);
+
 typedef enum {
     ACCESS_POLICY_ALLOW,
     ACCESS_POLICY_DENY
@@ -1977,6 +2150,13 @@ IedServer_setWriteAccessPolicy(IedServer self, FunctionalConstraint fc, AccessPo
  * User provided callback function to control MMS client read access to IEC 61850
  * data objects. The application is to allow read access to data objects for specific clients only.
  * It can be used to implement a role based access control (RBAC).
+ *
+ * \note This callback is invoked while the internal MMS model lock is held. Do NOT call
+ *       \ref IedServer_lockDataModel or \ref IedServer_unlockDataModel from within this
+ *       handler as doing so will cause a deadlock. The IedServer_update* functions are safe
+ *       to call.
+ *
+ * \note Do NOT call \ref IedServer_stop from within this handler.
  *
  * \param ld the logical device the client wants to access
  * \param ln the logical node the client wants to access
@@ -2014,6 +2194,13 @@ typedef enum {
  * \brief Callback that is called when the client is calling a dataset operation (create, delete, read, write, list directory)
  * 
  * \note This callback is called before the IedServer_RCBEventHandler and only in case of operations (RCB_EVENT_GET_PARAMETER, RCB_EVENT_SET_PARAMETER, RCB_EVENT_ENABLE
+ *
+ * \note This callback is invoked while the internal MMS model lock is held. Do NOT call
+ *       \ref IedServer_lockDataModel or \ref IedServer_unlockDataModel from within this
+ *       handler as doing so will cause a deadlock. The IedServer_update* functions are safe
+ *       to call.
+ *
+ * \note Do NOT call \ref IedServer_stop from within this handler.
  * 
  * \param parameter user provided parameter
  * \param connection client connection that is involved
@@ -2040,6 +2227,23 @@ typedef enum {
     DIRECTORY_CAT_LOG_LIST
 } IedServer_DirectoryCategory;
 
+/**
+ * \brief Callback that is called when a client requests a directory listing
+ *
+ * \note This callback is invoked while the internal MMS model lock is held. Do NOT call
+ *       \ref IedServer_lockDataModel or \ref IedServer_unlockDataModel from within this
+ *       handler as doing so will cause a deadlock. The IedServer_update* functions are safe
+ *       to call.
+ *
+ * \note Do NOT call \ref IedServer_stop from within this handler.
+ *
+ * \param parameter user provided parameter
+ * \param connection client connection that is involved
+ * \param category the directory category being requested
+ * \param logicalDevice the logical device being queried
+ *
+ * \return true to allow access, false to deny access
+ */
 typedef bool
 (*IedServer_DirectoryAccessHandler) (void* parameter, ClientConnection connection, IedServer_DirectoryCategory category, LogicalDevice* logicalDevice);
 
@@ -2050,6 +2254,13 @@ IedServer_setDirectoryAccessHandler(IedServer self, IedServer_DirectoryAccessHan
  * \brief Callback that is called when a client is invoking a list objects service
  *
  * This callback can be used to control the list object access to specific objects and is called for each object that are subject to a client request.
+ *
+ * \note This callback is invoked while the internal MMS model lock is held. Do NOT call
+ *       \ref IedServer_lockDataModel or \ref IedServer_unlockDataModel from within this
+ *       handler as doing so will cause a deadlock. The IedServer_update* functions are safe
+ *       to call.
+ *
+ * \note Do NOT call \ref IedServer_stop from within this handler.
  *
  * \param parameter user provided parameter
  * \param connection client connection that is involved
@@ -2083,6 +2294,13 @@ typedef enum {
  * \brief Callback that is called when a client is invoking a read or write service to a control block or log
  *
  * This callback can be used to control the read and write access to control blocks and logs (SGCB, LCBs, URCBs, BRCBs, GoCBs, SVCBs, logs)
+ *
+ * \note This callback is invoked while the internal MMS model lock is held. Do NOT call
+ *       \ref IedServer_lockDataModel or \ref IedServer_unlockDataModel from within this
+ *       handler as doing so will cause a deadlock. The IedServer_update* functions are safe
+ *       to call.
+ *
+ * \note Do NOT call \ref IedServer_stop from within this handler.
  *
  * \param parameter user provided parameter
  * \param connection client connection that is involved

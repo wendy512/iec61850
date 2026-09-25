@@ -54,7 +54,7 @@ typedef struct sGoosePublisher* GoosePublisher;
  *
  * \param parameters GOOSE communication parameters
  * \param interfaceId name of the Ethernet interface to use (e.g. "eth0")
- *
+ * 
  * \return the new GoosePublisher instance
  */
 LIB61850_API GoosePublisher
@@ -66,7 +66,7 @@ GoosePublisher_create(CommParameters* parameters, const char* interfaceID);
  * \param parameters GOOSE communication parameters
  * \param interfaceId name of the Ethernet interface to use (e.g. "eth0")
  * \param useVlanTag enable or disable the usage of VLAN tags in GOOSE messages
- *
+ * 
  * \return the new GoosePublisher instance
  */
 LIB61850_API GoosePublisher
@@ -77,7 +77,7 @@ GoosePublisher_createEx(CommParameters* parameters, const char* interfaceID, boo
  *
  * \param session R-session protocol instance to use
  * \param appId the appID value to use
- *
+ * 
  * \return the new GoosePublisher instance
  */
 LIB61850_API GoosePublisher

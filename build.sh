@@ -10,8 +10,8 @@
 set -euo pipefail
 
 # Versions
-MZ_VERSION=1.6
-# We extend the plain Makefile to support WITH_MBEDTLS3=1 via patch_makefile() below.
+MZ_VERSION=1.6.2.1
+# Must match the mbedtls-3.6.0 path hardcoded in upstream's Makefile.
 MBEDTLS_VERSION=3.6.0
 WINPCAP_VERSION=4.1.2
 
@@ -19,43 +19,20 @@ REPO_DIR="./libiec61850-repo"
 MBEDTLS_DIR="${REPO_DIR}/third_party/mbedtls/mbedtls-${MBEDTLS_VERSION}"
 WINPCAP_ZIP="WpdPack_${WINPCAP_VERSION//./_}.zip"
 
-# patch_makefile teaches the cloned libiec61850 Makefile two things upstream doesn't ship:
-#   1. WITH_MBEDTLS3=1 build flag (CMake supports it, plain Makefile doesn't).
-#      We mirror the existing WITH_MBEDTLS block for mbedtls-3.6.0 +
-#      hal/tls/mbedtls3 so we can produce an archive with TLS 1.3 support
-#      without switching to CMake (whose generated stack_config.h differs from
-#      the Makefile's and breaks downstream tests that rely on the defaults).
+# patch_makefile fixes two things in upstream's plain Makefile (WITH_MBEDTLS3=1 itself ships with it since v1.6.2.1):
+#   1. Its WITH_MBEDTLS3 block enables R-GOOSE/R-SMV but, unlike CMake, doesn't compile src/r_session, leaving RSession_* undefined at link time.
 #   2. `ar rcs` instead of `ar r` + ranlib. With mbedtls 3.6 the object list
 #      exceeds the threshold above which plain `ar r` produces an archive that
 #      ranlib then rejects as "malformed".
 patch_makefile() {
     local makefile="$1/Makefile"
 
-    # Idempotency guard so re-running on an existing checkout is a no-op.
-    if grep -q '^ifdef WITH_MBEDTLS3' "${makefile}"; then
-        return 0
-    fi
-
     awk '
-        /^LIB_INCLUDES = \$\(addprefix -I,\$\(LIB_INCLUDE_DIRS\)\)/ && !inserted {
-            print "ifdef WITH_MBEDTLS3"
-            print "LIB_SOURCE_DIRS += third_party/mbedtls/mbedtls-3.6.0/library"
-            print "LIB_SOURCE_DIRS += hal/tls/mbedtls3"
-            print "LIB_INCLUDE_DIRS += third_party/mbedtls/mbedtls-3.6.0/include"
-            print "LIB_INCLUDE_DIRS += hal/tls/mbedtls3"
-            print "CFLAGS += -D'\''MBEDTLS_CONFIG_FILE=\"mbedtls_config.h\"'\''"
-            print "CFLAGS += -D'\''CONFIG_MMS_SUPPORT_TLS=1'\''"
-            print "CFLAGS += -D'\''CONFIG_IEC61850_R_GOOSE=1'\''"
-            print "CFLAGS += -D'\''CONFIG_IEC61850_R_SMV=1'\''"
-            print "endif"
-            print ""
-            inserted = 1
+        /^LIB_SOURCE_DIRS \+= hal\/tls\/mbedtls3$/ {
+            print
+            print "LIB_SOURCE_DIRS += src/r_session"
+            next
         }
-        { print }
-    ' "${makefile}" > "${makefile}.tmp" && mv "${makefile}.tmp" "${makefile}"
-
-    # ar r → rm + ar rcs (tab-indented Makefile recipe).
-    awk '
         /^\t\$\(AR\) r \$\(LIB_NAME\) \$\(LIB_OBJS\)$/ {
             print "\trm -f $(LIB_NAME)"
             print "\t$(AR) rcs $(LIB_NAME) $(LIB_OBJS)"
@@ -71,8 +48,10 @@ if [ -d "${REPO_DIR}" ]; then
     echo "Directory ${REPO_DIR} already exists. Skipping download."
 else
     git clone --depth=1 -b "v${MZ_VERSION}" https://github.com/mz-automation/libiec61850.git "${REPO_DIR}"
-    # Teach the plain Makefile about WITH_MBEDTLS3=1 (CMake already supports it).
     patch_makefile "${REPO_DIR}"
+    # Upstream enables IED server debug output (printf to stdout) by default.
+    sed -i.bak 's/^#define DEBUG_IED_SERVER 1$/#define DEBUG_IED_SERVER 0/' "${REPO_DIR}/config/stack_config.h"
+    rm "${REPO_DIR}/config/stack_config.h.bak"
 fi
 
 echo "Downloading mbedtls version ${MBEDTLS_VERSION}..."
@@ -106,11 +85,11 @@ verify_archive() {
     archive_abs=$(cd "$(dirname "${archive}")" && pwd)/$(basename "${archive}")
 
     # Pick an arbitrary object out of the archive and inspect it.
-    # ar(1) on macOS handles both BSD- and SysV-style archives; on Linux/macOS where ar can't read a SysV archive at all we fall back to bsdtar.
+    # bsdtar reads both BSD- and GNU-style archives; macOS ar(1) silently extracts nothing from GNU archives yet exits 0, so it is only the fallback.
     local tmp
     tmp=$(mktemp -d)
-    if ! (cd "${tmp}" && ar -x "${archive_abs}" 2>/dev/null); then
-        (cd "${tmp}" && bsdtar -xf "${archive_abs}")
+    if ! (cd "${tmp}" && bsdtar -xf "${archive_abs}" 2>/dev/null); then
+        (cd "${tmp}" && ar -x "${archive_abs}")
     fi
     local sample
     sample=$(find "${tmp}" -name '*.o' | head -n1)
@@ -146,7 +125,7 @@ verify_archive() {
     rm -rf "${tmp}"
 
     # The Go bindings unconditionally reference these TLS symbols via cgo, so an archive without them will fail to link in any downstream project.
-    if ! nm "${archive}" 2>/dev/null | grep -qE " T _?TLSConfiguration_create$"; then
+    if ! nm "${archive}" 2>/dev/null | grep -E " T _?TLSConfiguration_create$" >/dev/null; then
         echo "ERROR: ${archive} is missing TLSConfiguration_create — was the library built with WITH_MBEDTLS3=1?" >&2
         exit 1
     fi
@@ -162,18 +141,18 @@ docker compose up --build
 build_darwin_native() {
     local target_dir="$1"   # e.g. darwin_armv8
     local arch_flag="$2"    # e.g. -arch arm64
+    # Install into ./build (not the repo's build dir) so the staging step below picks it up.
+    local prefix
+    prefix="$(pwd)/build/${target_dir}"
 
     echo "Building ${target_dir} natively on $(uname -s)/$(uname -m)..."
+    rm -rf "${prefix}"
     (
         cd "${REPO_DIR}"
-        # Clean only the build dir for this target, not the whole repo, so parallel native builds don't stomp on each other.
-        rm -rf "build/${target_dir}"
         make clean >/dev/null
-        make WITH_MBEDTLS3=1 \
-             CFLAGS="${arch_flag} -O2 -g" \
-             LDFLAGS="${arch_flag}" \
-             INSTALL_PREFIX="$(pwd)/build/${target_dir}" \
-             install
+        # Via the environment, not as make arguments: those would replace the Makefile's own CFLAGS (defines, -std).
+        CFLAGS="${arch_flag} -O2 -g" LDFLAGS="${arch_flag}" \
+            make WITH_MBEDTLS3=1 INSTALL_PREFIX="${prefix}" install
     )
 }
 
@@ -181,6 +160,8 @@ if [ "$(uname -s)" = "Darwin" ]; then
     case "$(uname -m)" in
         arm64)
             build_darwin_native darwin_armv8 "-arch arm64"
+            # Apple clang on Apple Silicon targets x86_64 out of the box.
+            build_darwin_native darwin_amd64 "-arch x86_64"
             ;;
         x86_64)
             # If someone runs this on an Intel Mac, build the amd64 variant natively.
@@ -201,7 +182,7 @@ fi
 # Build Windows locally via zig
 (cd "${REPO_DIR}" &&
     make TARGET=WIN64 \
-         CC="zig cc -target x86_64-windows-gnu" \
+         CC="zig cc -target x86_64-windows-gnu -fno-sanitize=undefined" \
          CPP="zig c++ -target x86_64-windows-gnu" \
          AR="zig ar" RANLIB="zig ranlib" \
          WITH_MBEDTLS3=1 \
@@ -213,6 +194,8 @@ echo "Copying built libraries to libiec61850 directory..."
 mkdir -p ./libiec61850
 cp -r ./build/* ./libiec61850/
 cp -r "${REPO_DIR}/build/windows_amd64/" ./libiec61850/windows_amd64
+# x64 import library for wpcap.dll, renamed so -lwpcap finds it.
+cp ./WpdPack/Lib/x64/wpcap.lib ./libiec61850/windows_amd64/lib/libwpcap.a
 
 # Stub Go files so each platform directory is a valid package
 echo "Writing Go package stubs for each platform..."
@@ -236,7 +219,7 @@ for dir in ./libiec61850/*/; do
                 echo "ERROR: missing ${archive}" >&2
                 exit 1
             fi
-            if ! nm "${archive}" 2>/dev/null | grep -qE " T _?TLSConfiguration_create$"; then
+            if ! nm "${archive}" 2>/dev/null | grep -E " T _?TLSConfiguration_create$" >/dev/null; then
                 echo "ERROR: ${archive} is missing TLSConfiguration_create" >&2
                 exit 1
             fi

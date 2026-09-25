@@ -96,12 +96,12 @@ RSession_setBufferSize(RSession self, uint16_t bufferSize);
 
 /**
  * \brief Set the security algorithms for the session instance
- *
+ * 
  * \note only for version 1 of the protocol!
- *
+ * 
  * \param secAlgo encryption algorithm to be used for the session instance
  * \param sigAlgo signature algorithm to be used for the session instance
- *
+ * 
  * \return returns R_SESSION_ERROR_OK
  */
 LIB61850_API RSessionError
@@ -109,7 +109,7 @@ RSession_setSecurity(RSession self, RSecurityAlgorithm secAlgo, RSignatureAlgori
 
 /**
  * \brief Bind the RSession instance to a specific local IP address and UDP port
- *
+ * 
  * \param self the RSession instance
  * \param localAddress the local IP address to use
  * \param localPort the local UDP port to use (default is 102)
@@ -186,7 +186,7 @@ RSession_addKey(RSession self, uint32_t keyId, uint8_t* key, int keyLength, RSec
 
 /**
  * \brief Remove key from the list of accepted keys
- *
+ * 
  * \param self the RSession instance
  * \param keyId the key ID is unique for the security association
  */
@@ -195,8 +195,8 @@ RSession_removeKey(RSession self, uint32_t keyId);
 
 /**
  * \brief Remove all keys from the list of accepted keys
- *
- * \param self the RSession instance
+ * 
+ * \param self the RSession instance 
  */
 void
 RSession_removeAllKeys(RSession self);
@@ -212,7 +212,7 @@ typedef void (*RSession_KeyEventHandler) (void* parameter, RSession rSession, RS
  * \brief Set a callback handler to receive key events from the RSession instance
  *
  * e.g. when the RSession instance has no valid key for the received messages or to publish messages.
- *
+ * 
  * \param self the RSession instance
  * \param handler the callback that is called when a new event happens
  * \param parameter user provided parameter that is passed to the user callback
@@ -225,7 +225,7 @@ RSession_setKeyEventHandler(RSession self, RSession_KeyEventHandler handler, voi
  *
  * \param self the RSession instance
  * \param keyId the key ID of the new active key (has to be added with \ref RSession_addKey before).
- *
+ * 
  * \return R_SESSION_ERROR_INVALID_KEY when no valid key with the given keyId is avialable, R_SESSION_ERROR_OK otherwise
  */
 LIB61850_API RSessionError

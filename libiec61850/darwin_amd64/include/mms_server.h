@@ -98,7 +98,7 @@ MmsServer_installVariableListAccessHandler(MmsServer self, MmsNamedVariableListA
 
 /**
  * \brief callback handler that is called for each received read journal request
- *
+ * 
  * \param parameter a user provided parameter
  * \param domain the MMS domain the journal is belonging to
  * \param logName the name of the journal

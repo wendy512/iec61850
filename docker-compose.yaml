@@ -12,7 +12,7 @@ services:
     platform: linux/arm/v7
     volumes:
       - ./build:/build
-    command: sh -c "mkdir -p /build/linux_armv7 && cd /app/libiec61850-repo && make WITH_MBEDTLS3=1 CFLAGS='-O2 -g -fomit-frame-pointer' INSTALL_PREFIX=/build/linux_armv7 install"
+    command: sh -c "mkdir -p /build/linux_armv7 && cd /app/libiec61850-repo && CFLAGS='-O2 -g -fomit-frame-pointer' make WITH_MBEDTLS3=1 INSTALL_PREFIX=/build/linux_armv7 install"
 
   builder-arm64:
     build:
